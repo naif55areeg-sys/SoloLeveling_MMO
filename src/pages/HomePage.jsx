@@ -177,7 +177,7 @@ function ManaCore({ rank }) {
       </div>
 
       {/* character image */}
-      <img src="/assets/naif.jpg" alt="Hunter" style={{ width: "73%", height: "73%", objectFit: "contain", zIndex: 4, filter: `drop-shadow(0 0 14px ${colors.glow}) drop-shadow(0 0 4px ${colors.core})` }} />
+      <img src="https://i.postimg.cc/sxDncP2Z/naif.webp" alt="Hunter" style={{ width: "73%", height: "73%", objectFit: "contain", zIndex: 4, filter: `drop-shadow(0 0 14px ${colors.glow}) drop-shadow(0 0 4px ${colors.core})` }} />
     </div>
   );
 }
