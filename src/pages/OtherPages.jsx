@@ -17,9 +17,6 @@ export function StatusBar({ state }) {
   const hpPct = Math.max(0, Math.min(100, (state.playerHp / maxHp) * 100));
   const maxStamina = state.maxStamina || 700;
   const stPct = Math.max(0, Math.min(100, (state.stamina / maxStamina) * 100));
-  <div style={{ color: attacks >= maxAtk ? "#ef4444" : "#ffffff" }}>
-    هجمات اليوم: {attacks} / {maxAtk}
-  </div>
   const hpCol = hpPct > 50 ? "#10b981" : hpPct > 20 ? "#eab308" : "#ef4444";
   const today = todayStr();
   const attacks = state.lastGateAttackDate === today ? (state.gateAttacksToday || 0) : 0;

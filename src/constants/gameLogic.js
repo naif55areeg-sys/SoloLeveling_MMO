@@ -62,7 +62,7 @@ export function rollMonsterDamage([min, max]) {
 }
 
 export function maxPlayerHp(stats) {
-  return 250 + (stats?.VIT || 10) * 5;
+  return 300 + (stats?.VIT || 10) * 5;
 }
 
 export function hpColor(pct) {
@@ -207,7 +207,7 @@ export function defaultState() {
     lastRest: Date.now(),
     dailyQuestAdds: 0,
     lastAddDate: null,
-    playerHp: maxPlayerHp({ VIT: 10 }),
+    playerHp: maxPlayerHp({ VIT: 10 }), // 350 = 300 + 10*5
     potions: 9,
     // ── عدادات الإنجازات ──
     gateStats: { NORMAL: 0, ELITE: 0, BOSS: 0, DUNGEON: 0, DESTRUCTION_KING: 0 },

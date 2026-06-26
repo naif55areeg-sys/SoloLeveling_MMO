@@ -8,7 +8,19 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3000'] }));
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://solo-leveling-mmo.vercel.app',
+    // أي رابط Vercel preview ثاني
+    /\.vercel\.app$/,
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+app.options('*', cors()); // preflight
 app.use(express.json());
 
 app.use("/auth", authRoutes);
