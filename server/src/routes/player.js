@@ -34,7 +34,11 @@ router.get("/me", requireAuth, async (req, res) => {
 // ─── SYNC ─────────────────────────────────────────────────────────────────────
 router.post("/sync", requireAuth, async (req, res) => {
   try {
-    const { level, exp, str, agi, vit, intl, sense } = req.body;
+    const {
+      level, exp, str, agi, vit, intl, sense,
+      unlocked_achievements, gate_stats, sss_loot_count, potions_used,
+      equipped, inventory
+    } = req.body;
     if (!level) return res.status(400).json({ error: "missing_data" });
 
     const power = await upsertPlayer({
@@ -44,10 +48,52 @@ router.post("/sync", requireAuth, async (req, res) => {
       level, exp: exp || 0,
       str: str || 10, agi: agi || 10, vit: vit || 10,
       intl: intl || 10, sense: sense || 10,
+      unlocked_achievements: unlocked_achievements || null,
+      gate_stats: gate_stats || null,
+      sss_loot_count: sss_loot_count ?? null,
+      potions_used: potions_used ?? null,
+      equipped: equipped || null,
+      inventory: inventory || null,
     });
     res.json({ ok: true, power });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── PLAYER PUBLIC PROFILE ────────────────────────────────────────────────────
+router.get("/player/:discord_id", async (req, res) => {
+  try {
+    const { discord_id } = req.params;
+    const player = await getPlayer(discord_id);
+    if (!player) return res.status(404).json({ error: "لاعب غير موجود" });
+
+    const parse = (v, fallback) => {
+      try { return typeof v === "string" ? JSON.parse(v) : v ?? fallback; }
+      catch { return fallback; }
+    };
+
+    res.json({
+      discord_id: player.discord_id,
+      username: player.username,
+      avatar: player.avatar,
+      level: player.level,
+      exp: player.exp,
+      power: player.power,
+      season_points: player.season_points,
+      str: player.str,
+      agi: player.agi,
+      vit: player.vit,
+      intl: player.intl,
+      sense: player.sense,
+      unlocked_achievements: parse(player.unlocked_achievements, []),
+      gate_stats: parse(player.gate_stats, {}),
+      equipped: parse(player.equipped, {}),
+      inventory: parse(player.inventory, []),
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "خطأ في السيرفر" });
   }
 });
 
@@ -58,7 +104,6 @@ router.get("/boss", async (req, res) => {
     if (!boss) return res.json({ boss: null });
     const ranking = await getBossDamageRanking(boss.id);
 
-    // إذا كان المستخدم مسجل، أرجع كم هجمة استخدم اليوم
     let attacks_today = 0;
     const authHeader = req.headers.authorization;
     if (authHeader) {
@@ -69,18 +114,12 @@ router.get("/boss", async (req, res) => {
       } catch { }
     }
 
-    res.json({
-      boss,
-      ranking,
-      attacks_today,
-      max_attacks: BOSS_MAX_ATTACKS_PER_DAY,
-    });
+    res.json({ boss, ranking, attacks_today, max_attacks: BOSS_MAX_ATTACKS_PER_DAY });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// هجوم على البوس — بحد 3 مرات يومياً لكل لاعب
 router.post("/boss/attack", requireAuth, async (req, res) => {
   try {
     const { str, level } = req.body;
@@ -88,24 +127,21 @@ router.post("/boss/attack", requireAuth, async (req, res) => {
     if (!boss) return res.status(404).json({ error: "no_active_boss" });
     if (boss.is_dead) return res.status(400).json({ error: "boss_already_dead" });
 
-    // تحقق من عدد الهجمات اليوم
     const attacksToday = await getBossAttacksToday(boss.id, req.user.discord_id);
     if (attacksToday >= BOSS_MAX_ATTACKS_PER_DAY) {
       return res.status(429).json({
         error: "daily_limit_reached",
         attacks_today: attacksToday,
         max_attacks: BOSS_MAX_ATTACKS_PER_DAY,
-        message: "وصلت الحد اليومي — 3 هجمات فقط على البوس يومياً",
+        message: "وصلت الحد اليومي",
       });
     }
 
-    // حساب الضرر بناءً على stats اللاعب
     const damage = Math.floor((str || 10) * 2.5 + (level || 1) * 1.5 + Math.random() * 20);
     const result = await damageBoss(boss.id, req.user.discord_id, req.user.username, damage);
 
     res.json({
-      ok: true,
-      damage,
+      ok: true, damage,
       attacks_today: attacksToday + 1,
       max_attacks: BOSS_MAX_ATTACKS_PER_DAY,
       attacks_remaining: BOSS_MAX_ATTACKS_PER_DAY - (attacksToday + 1),
@@ -116,7 +152,6 @@ router.post("/boss/attack", requireAuth, async (req, res) => {
   }
 });
 
-// سبون بوس
 router.post("/boss/spawn", requireAuth, async (req, res) => {
   try {
     const { name, max_hp, reward_exp, reward_desc, duration_hours } = req.body;
@@ -158,36 +193,3 @@ router.get("/pvp/history", requireAuth, async (req, res) => {
 });
 
 export default router;
-// ── أضف هذا في ملف routes/player.js ──────────────────────────────────────────
-
-// GET /api/player/:discord_id — بروفايل عام للاعب
-router.get("/player/:discord_id", async (req, res) => {
-  try {
-    const { discord_id } = req.params;
-    const player = await db.get(
-      `SELECT discord_id, username, avatar, level, exp, season_points, power,
-              stats, equipped, inventory
-       FROM players WHERE discord_id = ?`,
-      [discord_id]
-    );
-    if (!player) return res.status(404).json({ error: "لاعب غير موجود" });
-
-    // parse JSON fields لو محفوظة كـ string
-    const parse = (v) => { try { return typeof v === "string" ? JSON.parse(v) : v ?? {}; } catch { return {}; } };
-    return res.json({
-      discord_id: player.discord_id,
-      username: player.username,
-      avatar: player.avatar,
-      level: player.level,
-      exp: player.exp,
-      power: player.power,
-      season_points: player.season_points,
-      stats: parse(player.stats),
-      equipped: parse(player.equipped),
-      inventory: parse(player.inventory),
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "خطأ في السيرفر" });
-  }
-});

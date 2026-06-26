@@ -33,9 +33,22 @@ export async function getDb() {
           power INTEGER DEFAULT 0,
           guild_id INTEGER,
           season_points INTEGER DEFAULT 0,
+          unlocked_achievements TEXT DEFAULT '[]',
+          gate_stats TEXT DEFAULT '{}',
+          sss_loot_count INTEGER DEFAULT 0,
+          potions_used INTEGER DEFAULT 0,
+          equipped TEXT DEFAULT '{}',
+          inventory TEXT DEFAULT '[]',
           created_at BIGINT,
           updated_at BIGINT
         );
+
+        ALTER TABLE players ADD COLUMN IF NOT EXISTS unlocked_achievements TEXT DEFAULT '[]';
+        ALTER TABLE players ADD COLUMN IF NOT EXISTS gate_stats TEXT DEFAULT '{}';
+        ALTER TABLE players ADD COLUMN IF NOT EXISTS sss_loot_count INTEGER DEFAULT 0;
+        ALTER TABLE players ADD COLUMN IF NOT EXISTS potions_used INTEGER DEFAULT 0;
+        ALTER TABLE players ADD COLUMN IF NOT EXISTS equipped TEXT DEFAULT '{}';
+        ALTER TABLE players ADD COLUMN IF NOT EXISTS inventory TEXT DEFAULT '[]';
 
         CREATE TABLE IF NOT EXISTS world_boss (
           id SERIAL PRIMARY KEY,
@@ -89,14 +102,48 @@ export async function upsertPlayer(p) {
 
   if (existingRes.rows.length > 0) {
     await db.query(
-      `UPDATE players SET username=$1, avatar=$2, level=$3, exp=$4, str=$5, agi=$6, vit=$7, intl=$8, sense=$9, power=$10, updated_at=$11 WHERE discord_id=$12`,
-      [p.username, p.avatar, p.level, p.exp, p.str, p.agi, p.vit, p.intl, p.sense, power, now, p.discord_id]
+      `UPDATE players SET
+        username=$1, avatar=$2, level=$3, exp=$4,
+        str=$5, agi=$6, vit=$7, intl=$8, sense=$9,
+        power=$10, updated_at=$11,
+        unlocked_achievements=COALESCE($12, unlocked_achievements),
+        gate_stats=COALESCE($13, gate_stats),
+        sss_loot_count=COALESCE($14, sss_loot_count),
+        potions_used=COALESCE($15, potions_used),
+        equipped=COALESCE($16, equipped),
+        inventory=COALESCE($17, inventory)
+      WHERE discord_id=$18`,
+      [
+        p.username, p.avatar, p.level, p.exp,
+        p.str, p.agi, p.vit, p.intl, p.sense,
+        power, now,
+        p.unlocked_achievements || null,
+        p.gate_stats || null,
+        p.sss_loot_count ?? null,
+        p.potions_used ?? null,
+        p.equipped || null,
+        p.inventory || null,
+        p.discord_id
+      ]
     );
   } else {
     await db.query(
-      `INSERT INTO players (discord_id, username, avatar, level, exp, str, agi, vit, intl, sense, power, season_points, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 0, $12, $13)`,
-      [p.discord_id, p.username, p.avatar, p.level, p.exp, p.str, p.agi, p.vit, p.intl, p.sense, power, now, now]
+      `INSERT INTO players
+        (discord_id, username, avatar, level, exp, str, agi, vit, intl, sense, power,
+         season_points, unlocked_achievements, gate_stats, sss_loot_count, potions_used,
+         equipped, inventory, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,0,$12,$13,$14,$15,$16,$17,$18,$19)`,
+      [
+        p.discord_id, p.username, p.avatar, p.level, p.exp,
+        p.str, p.agi, p.vit, p.intl, p.sense, power,
+        p.unlocked_achievements || '[]',
+        p.gate_stats || '{}',
+        p.sss_loot_count || 0,
+        p.potions_used || 0,
+        p.equipped || '{}',
+        p.inventory || '[]',
+        now, now
+      ]
     );
   }
   return power;
