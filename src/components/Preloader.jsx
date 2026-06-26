@@ -194,7 +194,7 @@ export function Preloader({ onComplete }) {
 
       <video
         ref={videoRef}
-        src="/assets/intro-gate.mp4"
+        src="https://res.cloudinary.com/dmzg48rcc/video/upload/v1782514124/intro-gate_es5ebg.mov"
         loop
         playsInline
         style={{
@@ -327,14 +327,14 @@ export function Preloader({ onComplete }) {
 }
 
 const NAV_PAGES = [
-  { id: "HOME",   label: "HOME",   icon: "⌂" },
+  { id: "HOME", label: "HOME", icon: "⌂" },
   { id: "QUESTS", label: "QUESTS", icon: "📋" },
-  { id: "STATS",  label: "STATS",  icon: "📊" },
-  { id: "GATES",  label: "GATES",  icon: "🌀" },
-  { id: "RANK",   label: "RANK",   icon: "🏅" },
-  { id: "LOOT",   label: "LOOT",   icon: "🎁" },
-  { id: "MMO",    label: "RANKING", icon: "🌍", mmo: true },
-  { id: "BOSS",   label: "BOSS",   icon: "💀", mmo: true, bossColor: true },
+  { id: "STATS", label: "STATS", icon: "📊" },
+  { id: "GATES", label: "GATES", icon: "🌀" },
+  { id: "RANK", label: "RANK", icon: "🏅" },
+  { id: "LOOT", label: "LOOT", icon: "🎁" },
+  { id: "MMO", label: "RANKING", icon: "🌍", mmo: true },
+  { id: "BOSS", label: "BOSS", icon: "💀", mmo: true, bossColor: true },
 ];
 
 export function Nav({ activePage, onNavigate, level, statPoints }) {
