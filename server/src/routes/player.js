@@ -1,0 +1,193 @@
+import express from "express";
+import {
+  upsertPlayer, getLeaderboard, getPlayer,
+  getActiveBoss, spawnBoss, damageBoss, getBossDamageRanking,
+  fightPvP, getPvPHistory, calcPower, getBossAttacksToday
+} from "../db.js";
+import { requireAuth } from "./auth.js";
+
+const router = express.Router();
+
+const BOSS_MAX_ATTACKS_PER_DAY = 70;
+
+// ─── LEADERBOARD ──────────────────────────────────────────────────────────────
+router.get("/leaderboard", async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const rows = await getLeaderboard(limit);
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── ME ───────────────────────────────────────────────────────────────────────
+router.get("/me", requireAuth, async (req, res) => {
+  try {
+    const player = await getPlayer(req.user.discord_id);
+    res.json(player || null);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── SYNC ─────────────────────────────────────────────────────────────────────
+router.post("/sync", requireAuth, async (req, res) => {
+  try {
+    const { level, exp, str, agi, vit, intl, sense } = req.body;
+    if (!level) return res.status(400).json({ error: "missing_data" });
+
+    const power = await upsertPlayer({
+      discord_id: req.user.discord_id,
+      username: req.user.username,
+      avatar: req.user.avatar || null,
+      level, exp: exp || 0,
+      str: str || 10, agi: agi || 10, vit: vit || 10,
+      intl: intl || 10, sense: sense || 10,
+    });
+    res.json({ ok: true, power });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── WORLD BOSS ───────────────────────────────────────────────────────────────
+router.get("/boss", async (req, res) => {
+  try {
+    const boss = await getActiveBoss();
+    if (!boss) return res.json({ boss: null });
+    const ranking = await getBossDamageRanking(boss.id);
+
+    // إذا كان المستخدم مسجل، أرجع كم هجمة استخدم اليوم
+    let attacks_today = 0;
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      try {
+        const jwt = await import("jsonwebtoken");
+        const decoded = jwt.default.verify(authHeader.replace("Bearer ", ""), process.env.JWT_SECRET);
+        attacks_today = await getBossAttacksToday(boss.id, decoded.discord_id);
+      } catch { }
+    }
+
+    res.json({
+      boss,
+      ranking,
+      attacks_today,
+      max_attacks: BOSS_MAX_ATTACKS_PER_DAY,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// هجوم على البوس — بحد 3 مرات يومياً لكل لاعب
+router.post("/boss/attack", requireAuth, async (req, res) => {
+  try {
+    const { str, level } = req.body;
+    const boss = await getActiveBoss();
+    if (!boss) return res.status(404).json({ error: "no_active_boss" });
+    if (boss.is_dead) return res.status(400).json({ error: "boss_already_dead" });
+
+    // تحقق من عدد الهجمات اليوم
+    const attacksToday = await getBossAttacksToday(boss.id, req.user.discord_id);
+    if (attacksToday >= BOSS_MAX_ATTACKS_PER_DAY) {
+      return res.status(429).json({
+        error: "daily_limit_reached",
+        attacks_today: attacksToday,
+        max_attacks: BOSS_MAX_ATTACKS_PER_DAY,
+        message: "وصلت الحد اليومي — 3 هجمات فقط على البوس يومياً",
+      });
+    }
+
+    // حساب الضرر بناءً على stats اللاعب
+    const damage = Math.floor((str || 10) * 2.5 + (level || 1) * 1.5 + Math.random() * 20);
+    const result = await damageBoss(boss.id, req.user.discord_id, req.user.username, damage);
+
+    res.json({
+      ok: true,
+      damage,
+      attacks_today: attacksToday + 1,
+      max_attacks: BOSS_MAX_ATTACKS_PER_DAY,
+      attacks_remaining: BOSS_MAX_ATTACKS_PER_DAY - (attacksToday + 1),
+      ...result,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// سبون بوس
+router.post("/boss/spawn", requireAuth, async (req, res) => {
+  try {
+    const { name, max_hp, reward_exp, reward_desc, duration_hours } = req.body;
+    const id = await spawnBoss({
+      name: name || "وحش الظلام",
+      max_hp: max_hp || 50000,
+      reward_exp: reward_exp || 10000,
+      reward_desc,
+      duration_hours,
+    });
+    res.json({ ok: true, boss_id: id });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── PVP ──────────────────────────────────────────────────────────────────────
+router.post("/pvp/challenge", requireAuth, async (req, res) => {
+  try {
+    const { defender_id } = req.body;
+    if (!defender_id) return res.status(400).json({ error: "missing_defender_id" });
+    if (defender_id === req.user.discord_id) return res.status(400).json({ error: "cant_fight_yourself" });
+
+    const result = await fightPvP(req.user.discord_id, defender_id);
+    if (!result) return res.status(404).json({ error: "player_not_found" });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/pvp/history", requireAuth, async (req, res) => {
+  try {
+    const history = await getPvPHistory(req.user.discord_id);
+    res.json(history);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+export default router;
+// ── أضف هذا في ملف routes/player.js ──────────────────────────────────────────
+
+// GET /api/player/:discord_id — بروفايل عام للاعب
+router.get("/player/:discord_id", async (req, res) => {
+  try {
+    const { discord_id } = req.params;
+    const player = await db.get(
+      `SELECT discord_id, username, avatar, level, exp, season_points, power,
+              stats, equipped, inventory
+       FROM players WHERE discord_id = ?`,
+      [discord_id]
+    );
+    if (!player) return res.status(404).json({ error: "لاعب غير موجود" });
+
+    // parse JSON fields لو محفوظة كـ string
+    const parse = (v) => { try { return typeof v === "string" ? JSON.parse(v) : v ?? {}; } catch { return {}; } };
+    return res.json({
+      discord_id: player.discord_id,
+      username: player.username,
+      avatar: player.avatar,
+      level: player.level,
+      exp: player.exp,
+      power: player.power,
+      season_points: player.season_points,
+      stats: parse(player.stats),
+      equipped: parse(player.equipped),
+      inventory: parse(player.inventory),
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "خطأ في السيرفر" });
+  }
+});
