@@ -22,7 +22,7 @@ export async function syncToServer(state, user) {
       sense: stats.SENSE,
     };
 
-    const response = await fetch('http://localhost:3001/api/sync', {
+    const response = await fetch('https://sololeveling-mmo-server.onrender.com', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataToSend),

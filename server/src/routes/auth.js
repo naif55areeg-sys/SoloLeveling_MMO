@@ -66,7 +66,7 @@ router.get("/discord/callback", async (req, res) => {
       power: player?.power || 0,
     }));
 
-    res.redirect(`http://localhost:5173?token=${sessionToken}&user=${playerData}`);
+    res.redirect(`https://solo-leveling-mmo.vercel.app/?token=${sessionToken}&user=${playerData}`);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "auth_failed" });

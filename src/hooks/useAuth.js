@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const SERVER = "http://localhost:3001";
+const SERVER = "https://sololeveling-mmo-server.onrender.com";
 const TOKEN_KEY = "sl-discord-token";
 const USER_KEY = "sl-discord-user";
 
