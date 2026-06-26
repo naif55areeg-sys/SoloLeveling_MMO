@@ -192,4 +192,94 @@ router.get("/pvp/history", requireAuth, async (req, res) => {
   }
 });
 
+
+// ─── BROADCAST ────────────────────────────────────────────────────────────────
+let activeBroadcast = null;
+
+router.get("/broadcast", (req, res) => {
+  if (!activeBroadcast) return res.json(null);
+  if (Date.now() > activeBroadcast.expiresAt) {
+    activeBroadcast = null;
+    return res.json(null);
+  }
+  res.json(activeBroadcast);
+});
+
+router.post("/broadcast", requireAuth, async (req, res) => {
+  try {
+    const { message, type = "info", duration = 30 } = req.body;
+    if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
+    activeBroadcast = {
+      message,
+      type,
+      sender: req.user.username,
+      sentAt: Date.now(),
+      expiresAt: Date.now() + duration * 1000,
+    };
+    res.json({ ok: true, broadcast: activeBroadcast });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── ADMIN: جلب لاعب ──────────────────────────────────────────────────────────
+router.get("/admin/player/:discord_id", requireAuth, async (req, res) => {
+  try {
+    const ADMIN_IDS = (process.env.ADMIN_DISCORD_IDS || "").split(",").map(s => s.trim()).filter(Boolean);
+    if (!ADMIN_IDS.includes(req.user.discord_id))
+      return res.status(403).json({ error: "غير مصرح" });
+
+    const player = await getPlayer(req.params.discord_id);
+    if (!player) return res.status(404).json({ error: "لاعب غير موجود" });
+
+    const parse = (v, fb) => { try { return typeof v === "string" ? JSON.parse(v) : v ?? fb; } catch { return fb; } };
+    res.json({
+      discord_id: player.discord_id,
+      username:   player.username,
+      avatar:     player.avatar,
+      level:      player.level,
+      exp:        player.exp,
+      power:      player.power,
+      str: player.str, agi: player.agi, vit: player.vit,
+      intl: player.intl, sense: player.sense,
+      equipped:  parse(player.equipped, {}),
+      inventory: parse(player.inventory, []),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── ADMIN: تعديل لاعب ────────────────────────────────────────────────────────
+router.post("/admin/edit-player", requireAuth, async (req, res) => {
+  try {
+    const ADMIN_IDS = (process.env.ADMIN_DISCORD_IDS || "").split(",").map(s => s.trim()).filter(Boolean);
+    if (!ADMIN_IDS.includes(req.user.discord_id))
+      return res.status(403).json({ error: "غير مصرح" });
+
+    const { discord_id, level, exp, str, agi, vit, intl, sense } = req.body;
+    if (!discord_id) return res.status(400).json({ error: "discord_id مطلوب" });
+
+    const player = await getPlayer(discord_id);
+    if (!player) return res.status(404).json({ error: "لاعب غير موجود" });
+
+    const power = await upsertPlayer({
+      discord_id,
+      username: player.username,
+      avatar:   player.avatar,
+      level:    level  ?? player.level,
+      exp:      exp    ?? player.exp,
+      str:      str    ?? player.str,
+      agi:      agi    ?? player.agi,
+      vit:      vit    ?? player.vit,
+      intl:     intl   ?? player.intl,
+      sense:    sense  ?? player.sense,
+    });
+
+    res.json({ ok: true, power, message: `تم تحديث ${player.username}` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;

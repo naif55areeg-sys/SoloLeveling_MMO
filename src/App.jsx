@@ -23,7 +23,7 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [page, setPage] = useState("HOME");
   const { state, loaded, update } = useSystemState();
-  const { token, user, login, logout, syncPlayer, fetchLeaderboard, fetchBoss, attackBoss, challengePvP, spawnBoss, adminGetPlayer, adminUpdatePlayer, sendBroadcast, fetchBroadcast } = useAuth();
+  const { token, user, login, logout, syncPlayer, fetchLeaderboard, fetchBoss, attackBoss, challengePvP, spawnBoss, adminGetPlayer, adminUpdatePlayer, sendBroadcast, fetchBroadcast, fetchProfile } = useAuth();
   const [levelUpInfo, setLevelUpInfo] = useState(null);
   const [lootInfo, setLootInfo] = useState(null);
   const [achievementQueue, setAchievementQueue] = useState([]); // إنجازات بانتظار العرض
@@ -130,7 +130,8 @@ export default function App() {
       alert("✅ تم إرسال الإعلان لجميع اللاعبين");
       setBroadcastForm((p) => ({ ...p, message: "" }));
     } else {
-      alert("⚠️ فشل الإرسال — تأكد إنك مسجّل دخول وإن السيرفر شغال");
+      const reason = !token ? "غير مسجّل دخول" : !result ? "السيرفر لا يرد" : "خطأ في السيرفر";
+      alert(`⚠️ فشل الإرسال — ${reason}`);
     }
   };
 

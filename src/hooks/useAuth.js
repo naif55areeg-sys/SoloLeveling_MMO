@@ -174,5 +174,50 @@ export function useAuth() {
     } catch { return null; }
   }, []);
 
-  return { token, user, loading, login, logout, syncPlayer, fetchLeaderboard, fetchBoss, attackBoss, challengePvP, spawnBoss, fetchProfile, sendBroadcast, fetchBroadcast };
+  // تعديل لاعب آخر (أدمن)
+  const adminEditPlayer = useCallback(async (discord_id, patch) => {
+    if (!token) return null;
+    try {
+      const res = await fetch(`${SERVER}/api/admin/edit-player`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ discord_id, ...patch }),
+      });
+      return await res.json();
+    } catch { return null; }
+  }, [token]);
+
+
+  // جلب بيانات لاعب (أدمن)
+  const adminGetPlayer = useCallback(async (discord_id) => {
+    if (!token) return null;
+    try {
+      const res = await fetch(`${SERVER}/api/admin/player/${discord_id}`, {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch { return null; }
+  }, [token]);
+
+  // تحديث بيانات لاعب (أدمن)
+  const adminUpdatePlayer = useCallback(async (discord_id, patch) => {
+    if (!token) return null;
+    try {
+      const res = await fetch(`${SERVER}/api/admin/edit-player`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ discord_id, ...patch }),
+      });
+      return await res.json();
+    } catch { return null; }
+  }, [token]);
+
+  return { token, user, loading, login, logout, syncPlayer, fetchLeaderboard, fetchBoss, attackBoss, challengePvP, spawnBoss, fetchProfile, sendBroadcast, fetchBroadcast, adminEditPlayer, adminGetPlayer, adminUpdatePlayer };
 }
