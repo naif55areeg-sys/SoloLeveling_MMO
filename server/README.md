@@ -7,7 +7,7 @@
 - اضغط "New Application" → أعطه اسم
 - من القائمة الجانبية: **OAuth2**
 - انسخ **Client ID** و **Client Secret**
-- في "Redirects" أضف: `http://localhost:3001/auth/discord/callback`
+- في "Redirects" أضف: `https://sololeveling-mmo-server.onrender.com`
 - احفظ
 
 ### 2. إعداد ملف .env
@@ -20,7 +20,7 @@ cp .env.example .env
 PORT=3001
 DISCORD_CLIENT_ID=رقمك_هنا
 DISCORD_CLIENT_SECRET=السر_هنا
-DISCORD_REDIRECT_URI=http://localhost:3001/auth/discord/callback
+DISCORD_REDIRECT_URI=https://sololeveling-mmo-server.onrender.com
 JWT_SECRET=اي_نص_عشوائي_طويل_مثل_هذا_abc123xyz
 ```
 
