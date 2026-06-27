@@ -210,13 +210,31 @@ router.post("/broadcast", requireAuth, async (req, res) => {
     const { message, type = "info", duration = 30 } = req.body;
     if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
     const now = Date.now();
+
+    // لو takeover، الرسالة ممكن تكون JSON فيها videoUrl + overlayText
+    let parsedMessage = message;
+    let videoUrl = null;
+    let overlayText = null;
+    if (type === "takeover") {
+      try {
+        const parsed = JSON.parse(message);
+        videoUrl    = parsed.videoUrl    || message;
+        overlayText = parsed.overlayText || "";
+        parsedMessage = videoUrl;
+      } catch {
+        videoUrl = message;
+      }
+    }
+
     activeBroadcast = {
-      message,
+      message:    parsedMessage,
+      videoUrl,
+      overlayText,
       type,
-      sender: req.user.username,
-      sentAt: now,
-      updated_at: now,                          // ✅ مهم لـ makeBroadcastId بالواجهة
-      expiresAt: now + duration * 60 * 1000,    // ✅ duration بالدقائق لا الثواني
+      sender:     req.user.username,
+      sentAt:     now,
+      updated_at: now,
+      expiresAt:  now + duration * 60 * 1000,
     };
     res.json({ ok: true, broadcast: activeBroadcast });
   } catch (e) {

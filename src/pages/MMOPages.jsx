@@ -72,49 +72,101 @@ const BROADCAST_TYPES = {
   takeover: { color: "#a855f7", icon: "🖥️", label: "نظام", sound: "" },
 };
 
-// ─── BROADCAST TAKEOVER (فيديو شاشة كاملة مؤقت — يطلع لكل اللاعبين زي تنبيه الدونيشن) ──
-function BroadcastTakeover({ videoUrl, onDone }) {
+// ─── BROADCAST TAKEOVER ──────────────────────────────────────────────────────
+function BroadcastTakeover({ videoUrl, overlayText, onDone }) {
+  const [showText, setShowText] = useState(false);
+
+  // الرسالة تظهر بعد 3 ثواني من بداية الفيديو
+  useEffect(() => {
+    if (!overlayText) return;
+    const t = setTimeout(() => setShowText(true), 3000);
+    return () => clearTimeout(t);
+  }, [overlayText]);
+
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 2000,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        overflow: "hidden", background: "rgba(4,4,8,0.55)",
-        animation: "bctFadeIn 0.35s ease-out both",
-      }}
-    >
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 2000,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      overflow: "hidden", background: "rgba(4,4,8,0.55)",
+      animation: "bctFadeIn 0.35s ease-out both",
+    }}>
+      {/* الفيديو في الخلفية — ظاهر دايماً بكامل الشاشة */}
       <video
         src={videoUrl}
-        autoPlay
-        playsInline
-        onEnded={onDone}
-        onError={onDone}
+        autoPlay playsInline
+        onEnded={onDone} onError={onDone}
         style={{
           position: "absolute", inset: 0,
           width: "100%", height: "100%", objectFit: "cover",
-          opacity: 0.01, // 🎬 شفافية خفيفة زي تنبيهات الدونيشن
+          opacity: 1,
         }}
       />
 
-      {/* تظليل خفيف بالحواف عشان يبين كنظام/تنبيه مو مجرد فيديو عادي */}
+      {/* تظليل حواف */}
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
-        background: "radial-gradient(circle at 50% 50%, transparent 45%, rgba(0,0,0,0.45) 100%)",
+        background: "radial-gradient(ellipse 80% 80% at 50% 50%, transparent 40%, rgba(0,0,0,0.6) 100%)",
       }} />
 
-      {/* زر تجاوز صغير — احتياط لو الفيديو طويل أو ما حمّل */}
-      <button
-        onClick={onDone}
-        style={{
-          position: "absolute", top: 18, right: 18, zIndex: 1,
-          background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.25)",
-          color: "#fff", borderRadius: 8, padding: "6px 12px",
-          fontFamily: "monospace", fontSize: 11, cursor: "pointer",
-        }}
-      >تجاوز ✕</button>
+      {/* ── النص يظهر بعد 3 ثواني بأنيميشن فخم ── */}
+      {overlayText && showText && (
+        <div style={{
+          position: "relative", zIndex: 10,
+          textAlign: "center",
+          padding: "0 40px",
+          maxWidth: 700,
+          animation: "takeoverTextIn 0.8s cubic-bezier(.22,1,.36,1) both",
+        }}>
+          {/* خط عرضي فوق النص */}
+          <div style={{
+            height: 1, width: "60%", margin: "0 auto 20px",
+            background: "linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent)",
+            animation: "takeoverLineExpand 0.6s ease-out 0.1s both",
+          }} />
+
+          {/* النص الرئيسي */}
+          <div style={{
+            fontFamily: "'Orbitron', monospace",
+            fontSize: "clamp(22px, 4vw, 48px)",
+            fontWeight: 900,
+            color: "#ffffff",
+            letterSpacing: "0.08em",
+            lineHeight: 1.3,
+            textShadow: "0 0 40px rgba(168,85,247,0.8), 0 0 80px rgba(168,85,247,0.4), 0 4px 20px rgba(0,0,0,0.9)",
+            filter: "drop-shadow(0 0 24px rgba(168,85,247,0.6))",
+            whiteSpace: "pre-wrap",
+          }}>
+            {overlayText}
+          </div>
+
+          {/* خط عرضي تحت النص */}
+          <div style={{
+            height: 1, width: "60%", margin: "20px auto 0",
+            background: "linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent)",
+            animation: "takeoverLineExpand 0.6s ease-out 0.2s both",
+          }} />
+        </div>
+      )}
+
+      {/* زر تجاوز */}
+      <button onClick={onDone} style={{
+        position: "absolute", top: 18, right: 18, zIndex: 20,
+        background: "rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.2)",
+        color: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "6px 14px",
+        fontFamily: "monospace", fontSize: 11, cursor: "pointer",
+        backdropFilter: "blur(4px)",
+      }}>تجاوز ✕</button>
 
       <style>{`
         @keyframes bctFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes takeoverTextIn {
+          from { opacity: 0; transform: translateY(30px) scale(0.92); filter: blur(8px); }
+          to   { opacity: 1; transform: translateY(0) scale(1);       filter: blur(0); }
+        }
+        @keyframes takeoverLineExpand {
+          from { transform: scaleX(0); opacity: 0; }
+          to   { transform: scaleX(1); opacity: 1; }
+        }
       `}</style>
     </div>
   );
@@ -197,7 +249,7 @@ export function BroadcastBanner({ fetchBroadcast }) {
   // Takeover: فيديو ملء الشاشة
   if (broadcast?.type === "takeover") {
     return takeoverVisible
-      ? <BroadcastTakeover videoUrl={broadcast.message} onDone={() => {
+      ? <BroadcastTakeover videoUrl={broadcast.videoUrl || broadcast.message} overlayText={broadcast.overlayText || ""} onDone={() => {
         setTakeoverVisible(false);
         clearTimeout(takeoverTimerRef.current);
       }} />

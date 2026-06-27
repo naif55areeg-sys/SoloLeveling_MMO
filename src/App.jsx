@@ -40,6 +40,7 @@ export default function App() {
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [takeoverVideoUrl, setTakeoverVideoUrl] = useState("");
   const [takeoverMsg, setTakeoverMsg] = useState("");
+  const [takeoverOverlayText, setTakeoverOverlayText] = useState("");
   const [takeoverSending, setTakeoverSending] = useState(false);
 
   // ── تعديل لاعب آخر من لوحة الأدمن ──
@@ -166,15 +167,20 @@ export default function App() {
     }
   };
 
-  // 🖥️ تشغيل فيديو شاشة كاملة (Takeover) لجميع اللاعبين — نفس قناة البرودكاست، نوع خاص "takeover"
+  // 🖥️ تشغيل فيديو شاشة كاملة (Takeover) لجميع اللاعبين
   const adminSendTakeover = async () => {
     if (!takeoverVideoUrl.trim()) return;
     setTakeoverSending(true);
-    const result = await sendBroadcast({ message: takeoverVideoUrl.trim(), type: "takeover", duration: 5 });
+    const result = await sendBroadcast({
+      message: JSON.stringify({ videoUrl: takeoverVideoUrl.trim(), overlayText: takeoverOverlayText.trim() }),
+      type: "takeover",
+      duration: 120,
+    });
     setTakeoverSending(false);
     if (result?.ok || result?.message) {
       alert("✅ تم تشغيل الفيديو لجميع اللاعبين");
       setTakeoverVideoUrl("");
+      setTakeoverOverlayText("");
     } else {
       const reason = !token ? "غير مسجّل دخول" : !result ? "السيرفر لا يرد" : "خطأ في السيرفر";
       alert(`⚠️ فشل التشغيل — ${reason}`);
@@ -789,9 +795,20 @@ export default function App() {
                       <input
                         value={takeoverVideoUrl}
                         onChange={(e) => setTakeoverVideoUrl(e.target.value)}
-                        placeholder="https://...  (رابط فيديو مباشر mp4)"
+                        placeholder="https://...  (رابط فيديو مباشر mp4/mov)"
                         style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid #a855f740", borderRadius: 6, padding: "8px 10px", color: "#fff", fontFamily: "monospace", fontSize: 12, boxSizing: "border-box", marginBottom: 8, direction: "ltr", textAlign: "left" }}
                       />
+
+                      <textarea
+                        value={takeoverOverlayText}
+                        onChange={(e) => setTakeoverOverlayText(e.target.value)}
+                        placeholder="نص يظهر فوق الفيديو بعد 3 ثواني... (اختياري)"
+                        rows={2}
+                        style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid #a855f740", borderRadius: 6, padding: "8px 10px", color: "#fff", fontFamily: "'Orbitron', monospace", fontSize: 11, boxSizing: "border-box", marginBottom: 8, direction: "rtl", resize: "vertical" }}
+                      />
+                      <div style={{ fontFamily: "monospace", fontSize: 9, color: "#6b7280", marginBottom: 8, lineHeight: 1.5 }}>
+                        💡 النص يظهر بعد 3 ثواني من بداية الفيديو · بخط أبيض فخم في منتصف الشاشة · الفيديو يكون ظاهر دايماً بالخلفية
+                      </div>
 
                       <button
                         onClick={adminSendTakeover}
