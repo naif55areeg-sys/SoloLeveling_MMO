@@ -92,7 +92,7 @@ function BroadcastTakeover({ videoUrl, onDone }) {
         style={{
           position: "absolute", inset: 0,
           width: "100%", height: "100%", objectFit: "cover",
-          opacity: 0.5, // 🎬 شفافية خفيفة زي تنبيهات الدونيشن
+          opacity: 0.3, // 🎬 شفافية خفيفة زي تنبيهات الدونيشن
         }}
       />
 

@@ -39,6 +39,7 @@ export default function App() {
   const [broadcastForm, setBroadcastForm] = useState({ message: "", type: "info" });
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [takeoverVideoUrl, setTakeoverVideoUrl] = useState("");
+  const [takeoverMsg, setTakeoverMsg] = useState("");
   const [takeoverSending, setTakeoverSending] = useState(false);
 
   // ── تعديل لاعب آخر من لوحة الأدمن ──
