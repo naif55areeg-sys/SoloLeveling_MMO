@@ -1187,17 +1187,41 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
     if (!text || !currentUser || sending) return;
     if (text.length > MAX_CHARS) return;
     const replyToId = replyTo?.id || null;
+
+    // optimistic: أضف الرسالة فوراً قبل انتظار السيرفر
+    const tempId = "temp_" + Date.now();
+    const optimisticMsg = {
+      id: tempId,
+      content: text,
+      username: currentUser.username,
+      avatar: currentUser.avatar,
+      discord_id: currentUser.id,
+      level: state?.level || 1,
+      created_at: new Date().toISOString(),
+      reply_to: replyToId,
+      reactions: {},
+      _optimistic: true,
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    setIsAtBottom(true);
+
     setSending(true);
     setInput("");
     setReplyTo(null);
     const result = await sendMessage(ROOM, text, replyToId);
     setSending(false);
+
     if (result) {
+      // استبدل الرسالة المؤقتة بالرسالة الحقيقية من السيرفر
       setMessages(prev => {
-        const ids = new Set(prev.map(m => m.id));
-        return ids.has(result.id) ? prev : [...prev, result];
+        const withoutTemp = prev.filter(m => m.id !== tempId);
+        const ids = new Set(withoutTemp.map(m => m.id));
+        return ids.has(result.id) ? withoutTemp : [...withoutTemp, result];
       });
-      setIsAtBottom(true);
+    } else {
+      // فشل الإرسال — شيل الرسالة المؤقتة وارجع النص
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setInput(text);
     }
   };
 
