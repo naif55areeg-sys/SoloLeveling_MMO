@@ -1,21 +1,22 @@
 import express from "express";
 import pkg from "pg";
+import jwt from "jsonwebtoken";
 const { Pool } = pkg;
 
 const router = express.Router();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
-// ─── إنشاء الجدول إذا ما كان موجود ───────────────────────────────────────────
+// ─── إنشاء الجداول إذا ما كانت موجودة ────────────────────────────────────────
 await pool.query(`
   CREATE TABLE IF NOT EXISTS chat_messages (
     id          SERIAL PRIMARY KEY,
-    room        TEXT    NOT NULL DEFAULT 'global',
-    discord_id  TEXT    NOT NULL,
-    username    TEXT    NOT NULL,
+    room        TEXT        NOT NULL DEFAULT 'global',
+    discord_id  TEXT        NOT NULL,
+    username    TEXT        NOT NULL,
     avatar      TEXT,
-    level       INT     DEFAULT 1,
-    content     TEXT    NOT NULL,
-    reply_to    INT     REFERENCES chat_messages(id) ON DELETE SET NULL,
+    level       INT         DEFAULT 1,
+    content     TEXT        NOT NULL,
+    reply_to    INT         REFERENCES chat_messages(id) ON DELETE SET NULL,
     created_at  TIMESTAMPTZ DEFAULT NOW()
   );
   CREATE TABLE IF NOT EXISTS chat_reactions (
@@ -27,14 +28,13 @@ await pool.query(`
   );
 `);
 
-// ─── middleware: التحقق من التوكن ─────────────────────────────────────────────
+// ─── middleware: نفس طريقة auth.js ───────────────────────────────────────────
 function requireAuth(req, res, next) {
-  const auth = req.headers.authorization;
-  if (!auth?.startsWith("Bearer ")) return res.status(401).json({ error: "unauthorized" });
-  // نستخرج بيانات المستخدم من التوكن — نفس طريقة باقي الـ routes
+  const header = req.headers.authorization;
+  if (!header) return res.status(401).json({ error: "no_token" });
   try {
-    const payload = JSON.parse(Buffer.from(auth.split(".")[1], "base64").toString());
-    req.user = payload;
+    const token = header.replace("Bearer ", "");
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
     next();
   } catch {
     return res.status(401).json({ error: "invalid_token" });
@@ -48,6 +48,7 @@ router.get("/:room", async (req, res) => {
   const before = req.query.before ? parseInt(req.query.before) : null;
 
   try {
+    const params = before ? [room, limit, before] : [room, limit];
     const { rows } = await pool.query(`
       SELECT
         m.id, m.room, m.discord_id, m.username, m.avatar, m.level,
@@ -63,9 +64,9 @@ router.get("/:room", async (req, res) => {
       GROUP BY m.id
       ORDER BY m.id DESC
       LIMIT $2
-    `, before ? [room, limit, before] : [room, limit]);
+    `, params);
 
-    res.json(rows.reverse()); // أقدم → أحدث
+    res.json(rows.reverse());
   } catch (e) {
     console.error("chat fetch error:", e);
     res.status(500).json({ error: "server_error" });
@@ -76,17 +77,24 @@ router.get("/:room", async (req, res) => {
 router.post("/:room", requireAuth, async (req, res) => {
   const { room } = req.params;
   const { content, reply_to } = req.body;
-  const { id: discord_id, username, avatar, level } = req.user;
+  // التوكن يحتوي discord_id مو id
+  const { discord_id, username, avatar } = req.user;
 
   if (!content?.trim()) return res.status(400).json({ error: "empty_message" });
   if (content.length > 500) return res.status(400).json({ error: "too_long" });
 
   try {
+    // نجيب الـ level من جدول اللاعبين
+    const playerRes = await pool.query(
+      "SELECT level FROM players WHERE discord_id = $1", [discord_id]
+    );
+    const level = playerRes.rows[0]?.level || 1;
+
     const { rows } = await pool.query(`
       INSERT INTO chat_messages (room, discord_id, username, avatar, level, content, reply_to)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id, room, discord_id, username, avatar, level, content, reply_to, created_at
-    `, [room, discord_id, username, avatar, level || 1, content.trim(), reply_to || null]);
+    `, [room, discord_id, username, avatar, level, content.trim(), reply_to || null]);
 
     res.json({ ...rows[0], reactions: [] });
   } catch (e) {
@@ -98,14 +106,16 @@ router.post("/:room", requireAuth, async (req, res) => {
 // ─── DELETE /api/chat/:room/:id — حذف رسالة ──────────────────────────────────
 router.delete("/:room/:id", requireAuth, async (req, res) => {
   const msgId = parseInt(req.params.id);
-  const { id: discord_id } = req.user;
-  const ADMIN_KEY = process.env.ADMIN_KEY || "nyvora2026";
-  const isAdmin = req.headers["x-admin-key"] === ADMIN_KEY;
+  const { discord_id } = req.user;
+  const isAdmin = req.headers["x-admin-key"] === (process.env.ADMIN_KEY || "nyvora2026");
 
   try {
-    const { rows } = await pool.query("SELECT discord_id FROM chat_messages WHERE id = $1", [msgId]);
+    const { rows } = await pool.query(
+      "SELECT discord_id FROM chat_messages WHERE id = $1", [msgId]
+    );
     if (!rows.length) return res.status(404).json({ error: "not_found" });
-    if (!isAdmin && rows[0].discord_id !== discord_id) return res.status(403).json({ error: "forbidden" });
+    if (!isAdmin && rows[0].discord_id !== discord_id)
+      return res.status(403).json({ error: "forbidden" });
 
     await pool.query("DELETE FROM chat_messages WHERE id = $1", [msgId]);
     res.json({ ok: true });
@@ -119,12 +129,11 @@ router.delete("/:room/:id", requireAuth, async (req, res) => {
 router.post("/:room/:id/react", requireAuth, async (req, res) => {
   const msgId = parseInt(req.params.id);
   const { emoji } = req.body;
-  const { id: discord_id } = req.user;
+  const { discord_id } = req.user;
 
   if (!emoji) return res.status(400).json({ error: "no_emoji" });
 
   try {
-    // toggle: إذا موجود احذفه، إذا ما موجود أضفه
     const { rows } = await pool.query(
       "SELECT id FROM chat_reactions WHERE message_id=$1 AND discord_id=$2 AND emoji=$3",
       [msgId, discord_id, emoji]
