@@ -38,7 +38,7 @@ export default function App() {
   const [bossSaving, setBossSaving] = useState(false);
   const [broadcastForm, setBroadcastForm] = useState({ message: "", type: "info" });
   const [broadcastSending, setBroadcastSending] = useState(false);
-  const [takeoverText, setTakeoverText] = useState("");
+  const [takeoverVideoUrl, setTakeoverVideoUrl] = useState("");
   const [takeoverSending, setTakeoverSending] = useState(false);
 
   // ── تعديل لاعب آخر من لوحة الأدمن ──
@@ -165,15 +165,15 @@ export default function App() {
     }
   };
 
-  // 🖥️ تشغيل شاشة كاملة (Takeover) لجميع اللاعبين — نفس قناة البرودكاست، نوع خاص "takeover"
+  // 🖥️ تشغيل فيديو شاشة كاملة (Takeover) لجميع اللاعبين — نفس قناة البرودكاست، نوع خاص "takeover"
   const adminSendTakeover = async () => {
-    if (!takeoverText.trim()) return;
+    if (!takeoverVideoUrl.trim()) return;
     setTakeoverSending(true);
-    const result = await sendBroadcast({ message: takeoverText, type: "takeover", duration: 5 });
+    const result = await sendBroadcast({ message: takeoverVideoUrl.trim(), type: "takeover", duration: 5 });
     setTakeoverSending(false);
     if (result?.ok || result?.message) {
-      alert("✅ تم تشغيل الشاشة الكاملة لجميع اللاعبين");
-      setTakeoverText("");
+      alert("✅ تم تشغيل الفيديو لجميع اللاعبين");
+      setTakeoverVideoUrl("");
     } else {
       const reason = !token ? "غير مسجّل دخول" : !result ? "السيرفر لا يرد" : "خطأ في السيرفر";
       alert(`⚠️ فشل التشغيل — ${reason}`);
@@ -778,26 +778,26 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* ── FULLSCREEN TAKEOVER ── */}
+                    {/* ── FULLSCREEN VIDEO TAKEOVER ── */}
                     <div style={{ background: "rgba(168,85,247,0.06)", border: "1px solid #a855f720", borderRadius: 10, padding: "14px 16px" }}>
-                      <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#a855f7", marginBottom: 6 }}>🖥️ شاشة كاملة (Takeover)</div>
+                      <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#a855f7", marginBottom: 6 }}>🖥️ فيديو شاشة كاملة (Takeover)</div>
                       <div style={{ fontFamily: "monospace", fontSize: 9, color: "#6b7280", marginBottom: 10, lineHeight: 1.6 }}>
-                        تأثير يقطع الشاشة بالكامل لجميع اللاعبين لثوانٍ قليلة ويعرض النص بالنص — زي تنبيه دونيشن.
+                        رابط فيديو يشتغل تلقائيًا ملء الشاشة لجميع اللاعبين بشفافية خفيفة (زي تنبيه دونيشن)، ويختفي تلقائيًا بعد انتهاءه.
                       </div>
 
                       <input
-                        value={takeoverText}
-                        onChange={(e) => setTakeoverText(e.target.value)}
-                        placeholder="اكتب النص اللي يطلع بالنص..."
-                        style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid #a855f740", borderRadius: 6, padding: "8px 10px", color: "#fff", fontFamily: "monospace", fontSize: 12, boxSizing: "border-box", marginBottom: 8, direction: "rtl" }}
+                        value={takeoverVideoUrl}
+                        onChange={(e) => setTakeoverVideoUrl(e.target.value)}
+                        placeholder="https://...  (رابط فيديو مباشر mp4)"
+                        style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid #a855f740", borderRadius: 6, padding: "8px 10px", color: "#fff", fontFamily: "monospace", fontSize: 12, boxSizing: "border-box", marginBottom: 8, direction: "ltr", textAlign: "left" }}
                       />
 
                       <button
                         onClick={adminSendTakeover}
-                        disabled={takeoverSending || !takeoverText.trim()}
+                        disabled={takeoverSending || !takeoverVideoUrl.trim()}
                         style={{ width: "100%", padding: "9px", borderRadius: 6, border: "1px solid #a855f760", background: takeoverSending ? "rgba(168,85,247,0.05)" : "rgba(168,85,247,0.15)", color: "#a855f7", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: takeoverSending ? "default" : "pointer", letterSpacing: 1 }}
                       >
-                        {takeoverSending ? "⏳ جاري التشغيل..." : "🚀 شغّلها لجميع اللاعبين"}
+                        {takeoverSending ? "⏳ جاري التشغيل..." : "🚀 شغّله لجميع اللاعبين"}
                       </button>
                     </div>
 

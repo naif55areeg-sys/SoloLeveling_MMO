@@ -72,83 +72,49 @@ const BROADCAST_TYPES = {
   takeover: { color: "#a855f7", icon: "🖥️", label: "نظام", sound: "" },
 };
 
-// ─── BROADCAST TAKEOVER (شاشة كاملة مؤقتة — تطلع لكل اللاعبين زي تنبيه الدونيشن) ──
-function BroadcastTakeover({ text }) {
+// ─── BROADCAST TAKEOVER (فيديو شاشة كاملة مؤقت — يطلع لكل اللاعبين زي تنبيه الدونيشن) ──
+function BroadcastTakeover({ videoUrl, onDone }) {
   return (
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 2000,
         display: "flex", alignItems: "center", justifyContent: "center",
-        pointerEvents: "none", overflow: "hidden",
-        animation: "bctOverlayFade 4.5s ease-in-out both",
+        overflow: "hidden", background: "rgba(4,4,8,0.55)",
+        animation: "bctFadeIn 0.35s ease-out both",
       }}
     >
-      {/* خلفية معتمة متوهجة */}
+      <video
+        src={videoUrl}
+        autoPlay
+        playsInline
+        onEnded={onDone}
+        onError={onDone}
+        style={{
+          position: "absolute", inset: 0,
+          width: "100%", height: "100%", objectFit: "cover",
+          opacity: 0.85, // 🎬 شفافية خفيفة زي تنبيهات الدونيشن
+        }}
+      />
+
+      {/* تظليل خفيف بالحواف عشان يبين كنظام/تنبيه مو مجرد فيديو عادي */}
       <div style={{
-        position: "absolute", inset: 0,
-        background: "radial-gradient(circle at 50% 50%, rgba(168,85,247,0.22), rgba(5,5,8,0.82) 70%)",
-        backdropFilter: "blur(4px)",
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: "radial-gradient(circle at 50% 50%, transparent 45%, rgba(0,0,0,0.45) 100%)",
       }} />
 
-      {/* أشعة دوّارة بالخلفية */}
-      <div style={{
-        position: "absolute", width: "150%", height: "150%",
-        background: "conic-gradient(from 0deg, transparent, #a855f730, transparent 30%, #22d3ee30, transparent 60%, #fbbf2430, transparent)",
-        animation: "bctSpin 7s linear infinite",
-        filter: "blur(50px)",
-      }} />
-
-      {/* جزيئات متناثرة */}
-      {Array.from({ length: 14 }).map((_, i) => (
-        <div key={i} style={{
-          position: "absolute",
-          left: `${(i * 37) % 100}%`, top: `${(i * 53) % 100}%`,
-          width: 4, height: 4, borderRadius: "50%",
-          background: ["#a855f7", "#22d3ee", "#fbbf24"][i % 3],
-          boxShadow: `0 0 8px ${["#a855f7", "#22d3ee", "#fbbf24"][i % 3]}`,
-          animation: `bctFloat ${3 + (i % 4)}s ease-in-out infinite`,
-          animationDelay: `${i * 0.15}s`,
-        }} />
-      ))}
-
-      {/* بطاقة النص */}
-      <div style={{
-        position: "relative", padding: "40px 56px", textAlign: "center", maxWidth: "88vw",
-        animation: "bctPop 0.6s cubic-bezier(.2,1.4,.4,1) both",
-      }}>
-        <div style={{
-          fontFamily: "monospace", fontSize: 13, letterSpacing: 6, color: "#fbbf24",
-          marginBottom: 16, textShadow: "0 0 20px #fbbf2490",
-        }}>
-          ✦ NYVORA SYSTEM ✦
-        </div>
-        <div style={{
-          fontFamily: "'Orbitron',monospace", fontWeight: 900,
-          fontSize: "clamp(26px, 6vw, 54px)", color: "#fff",
-          textShadow: "0 0 30px #a855f7, 0 0 60px rgba(34,211,238,0.5)",
-          letterSpacing: 1, lineHeight: 1.3, whiteSpace: "pre-wrap", wordBreak: "break-word",
-        }}>
-          {text}
-        </div>
-      </div>
+      {/* زر تجاوز صغير — احتياط لو الفيديو طويل أو ما حمّل */}
+      <button
+        onClick={onDone}
+        style={{
+          position: "absolute", top: 18, right: 18, zIndex: 1,
+          background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.25)",
+          color: "#fff", borderRadius: 8, padding: "6px 12px",
+          fontFamily: "monospace", fontSize: 11, cursor: "pointer",
+        }}
+      >تجاوز ✕</button>
 
       <style>{`
-        @keyframes bctOverlayFade {
-          0% { opacity: 0; }
-          8% { opacity: 1; }
-          82% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        @keyframes bctPop {
-          0% { transform: scale(0.4) translateY(40px); opacity: 0; }
-          60% { transform: scale(1.08) translateY(-6px); opacity: 1; }
-          100% { transform: scale(1) translateY(0); opacity: 1; }
-        }
-        @keyframes bctSpin { to { transform: rotate(360deg); } }
-        @keyframes bctFloat {
-          0%, 100% { transform: translateY(0); opacity: 0.4; }
-          50% { transform: translateY(-22px); opacity: 1; }
-        }
+        @keyframes bctFadeIn { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
     </div>
   );
@@ -198,20 +164,22 @@ export function BroadcastBanner({ fetchBroadcast }) {
     }
   }, [broadcast?.message, broadcast?.type, broadcast?.sound, muted]);
 
-  // 🖥️ لما يجي إعلان جديد من نوع "takeover"، نطلعه شاشة كاملة لمدة محدودة ثم نخفيه تلقائيًا
-  // (مرة واحدة فقط لكل رسالة — ما يتكرر مع كل polling لنفس الرسالة)
+  // 🖥️ لما يجي إعلان جديد من نوع "takeover"، نشغّل الفيديو شاشة كاملة لين ينتهي
+  // (أو حد أقصى احتياطي 20 ثانية لو الفيديو طويل/ما انتهى الـ event تبعه) — مرة واحدة لكل رسالة
   useEffect(() => {
     if (broadcast?.type !== "takeover" || !broadcast?.message) return;
     if (lastTakeoverRef.current === broadcast.message) return;
     lastTakeoverRef.current = broadcast.message;
     setTakeoverVisible(true);
-    const t = setTimeout(() => setTakeoverVisible(false), 4500);
+    const t = setTimeout(() => setTakeoverVisible(false), 20000);
     return () => clearTimeout(t);
   }, [broadcast?.type, broadcast?.message]);
 
-  // 🖥️ إعلانات الـ takeover تطلع شاشة كاملة فقط — ما تطلع كبانر عادي بالأعلى
+  // 🖥️ إعلانات الـ takeover تشغّل فيديو ملء الشاشة فقط — ما تطلع كبانر عادي بالأعلى
   if (broadcast?.type === "takeover") {
-    return takeoverVisible ? <BroadcastTakeover text={broadcast.message} /> : null;
+    return takeoverVisible
+      ? <BroadcastTakeover videoUrl={broadcast.message} onDone={() => setTakeoverVisible(false)} />
+      : null;
   }
 
   if (!broadcast?.message) return null;
