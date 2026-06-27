@@ -62,18 +62,24 @@ export function DiscordLoginBanner({ user, onLogin, onLogout }) {
 const TIER_COLOR_MAP = { E: "#ef4444", D: "#9ca3af", C: "#22d3ee", B: "#60a5fa", A: "#fbbf24", S: "#a855f7", SS: "#67e8f9", SSS: "#fbbf24" };
 
 // ─── BROADCAST BANNER ────────────────────────────────────────────────────────
+// ⚠️ ضع روابط الصوت هنا (mp3/ogg) — رابط مباشر للملف الصوتي لكل نوع إعلان.
+// لو ما تبي صوت لنوع معيّن، خله "" وما راح يشتغل له صوت.
 const BROADCAST_TYPES = {
-  info: { color: "#22d3ee", icon: "📢", label: "إعلان" },
-  warning: { color: "#fbbf24", icon: "⚠️", label: "تحذير" },
-  event: { color: "#a855f7", icon: "🎉", label: "حدث" },
-  boss: { color: "#ef4444", icon: "👹", label: "بوس" },
+  info: { color: "#22d3ee", icon: "📢", label: "إعلان", sound: "https://res.cloudinary.com/dmzg48rcc/video/upload/v1782525747/DLVideo-_4__1_jbg0ug.mp3" },
+  warning: { color: "#fbbf24", icon: "⚠️", label: "تحذير", sound: "" },
+  event: { color: "#a855f7", icon: "🎉", label: "حدث", sound: "https://res.cloudinary.com/dmzg48rcc/video/upload/v1782525941/DLVideo-_5__b7w9iy.mp3" },
+  boss: { color: "#ef4444", icon: "👹", label: "بوس", sound: "" },
 };
 
 export function BroadcastBanner({ fetchBroadcast }) {
   const [broadcast, setBroadcast] = useState(null);
   const [dismissed, setDismissed] = useState(null);
   const [closeHover, setCloseHover] = useState(false);
+  const [muteHover, setMuteHover] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const lastSoundRef = useRef(null);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (!fetchBroadcast) return;
@@ -86,6 +92,26 @@ export function BroadcastBanner({ fetchBroadcast }) {
     return () => clearInterval(t);
   }, [fetchBroadcast]);
 
+  // 🔊 تشغيل صوت تلقائي مرة واحدة لما يوصل إعلان جديد (وما يتكرر مع كل polling)
+  useEffect(() => {
+    if (!broadcast?.message) return;
+    if (lastSoundRef.current === broadcast.message) return;
+    lastSoundRef.current = broadcast.message;
+    if (muted) return;
+    const typeCfg = BROADCAST_TYPES[broadcast.type] || BROADCAST_TYPES.info;
+    const soundUrl = broadcast.sound || typeCfg.sound;
+    if (!soundUrl) return;
+    try {
+      const audio = new Audio(soundUrl);
+      audio.volume = 0.55;
+      audioRef.current = audio;
+      // المتصفحات تمنع التشغيل التلقائي أحياناً لو المستخدم لسا ما تفاعل مع الصفحة
+      audio.play().catch(() => { });
+    } catch {
+      /* رابط غير صالح أو تعذّر التشغيل — نتجاهل بصمت */
+    }
+  }, [broadcast?.message, broadcast?.type, broadcast?.sound, muted]);
+
   if (!broadcast?.message) return null;
   // نخفيه لو المستخدم أغلقه (نحفظ ID أو النص عشان ما يرجع)
   if (dismissed === broadcast.message) return null;
@@ -93,8 +119,17 @@ export function BroadcastBanner({ fetchBroadcast }) {
   const cfg = BROADCAST_TYPES[broadcast.type] || BROADCAST_TYPES.info;
 
   const handleClose = () => {
+    if (audioRef.current) { audioRef.current.pause(); }
     setLeaving(true);
     setTimeout(() => setDismissed(broadcast.message), 260);
+  };
+
+  const toggleMute = () => {
+    setMuted((m) => {
+      const next = !m;
+      if (next && audioRef.current) audioRef.current.pause();
+      return next;
+    });
   };
 
   return (
@@ -183,6 +218,25 @@ export function BroadcastBanner({ fetchBroadcast }) {
           >
             {broadcast.message}
           </div>
+
+          {/* ── زر كتم/تشغيل الصوت ── */}
+          <button
+            onClick={toggleMute}
+            onMouseEnter={() => setMuteHover(true)}
+            onMouseLeave={() => setMuteHover(false)}
+            title={muted ? "تشغيل الصوت" : "كتم الصوت"}
+            style={{
+              position: "relative", zIndex: 1,
+              background: muteHover ? `${cfg.color}22` : "rgba(255,255,255,0.04)",
+              border: `1px solid ${muteHover ? cfg.color + "90" : cfg.color + "35"}`,
+              color: muteHover ? cfg.color : "#9ca3af",
+              borderRadius: 9, width: 30, height: 30,
+              cursor: "pointer", fontSize: 13, flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.18s ease",
+              transform: muteHover ? "scale(1.08)" : "scale(1)",
+            }}
+          >{muted ? "🔇" : "🔊"}</button>
 
           {/* ── زر الإغلاق ── */}
           <button
@@ -1099,10 +1153,10 @@ function ChatMessage({ msg, currentUser, onReply, onReact, onDelete, onProfile, 
   const reactionsArr = Array.isArray(reactionsRaw)
     ? reactionsRaw
     : Object.entries(reactionsRaw).flatMap(([emoji, val]) =>
-        Array.isArray(val) ? val.map(v => ({ emoji, ...v }))
+      Array.isArray(val) ? val.map(v => ({ emoji, ...v }))
         : typeof val === 'number' ? Array(val).fill({ emoji })
-        : [{ emoji, ...val }]
-      );
+          : [{ emoji, ...val }]
+    );
   reactionsArr.forEach(r => {
     if (!reactions[r.emoji]) reactions[r.emoji] = { count: 0, mine: false };
     reactions[r.emoji].count++;
