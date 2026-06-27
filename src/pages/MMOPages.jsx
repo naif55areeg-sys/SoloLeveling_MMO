@@ -72,6 +72,8 @@ const BROADCAST_TYPES = {
 export function BroadcastBanner({ fetchBroadcast }) {
   const [broadcast, setBroadcast] = useState(null);
   const [dismissed, setDismissed] = useState(null);
+  const [closeHover, setCloseHover] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     if (!fetchBroadcast) return;
@@ -90,39 +92,145 @@ export function BroadcastBanner({ fetchBroadcast }) {
 
   const cfg = BROADCAST_TYPES[broadcast.type] || BROADCAST_TYPES.info;
 
+  const handleClose = () => {
+    setLeaving(true);
+    setTimeout(() => setDismissed(broadcast.message), 260);
+  };
+
   return (
-    <div style={{
-      position: "fixed", top: 60, left: "50%", transform: "translateX(-50%)",
-      zIndex: 800, width: "min(600px, 92vw)",
-      background: `linear-gradient(135deg, ${cfg.color}22, rgba(0,0,0,0.85))`,
-      border: `1px solid ${cfg.color}60`,
-      borderRadius: 14, padding: "14px 20px",
-      backdropFilter: "blur(16px)",
-      boxShadow: `0 0 32px ${cfg.color}30, 0 8px 32px rgba(0,0,0,0.6)`,
-      animation: "fadeUp 0.4s cubic-bezier(.34,1.56,.64,1) both",
-      display: "flex", alignItems: "center", gap: 14,
-    }}>
-      {/* أيقونة + نوع */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flexShrink: 0 }}>
-        <span style={{ fontSize: 22, filter: `drop-shadow(0 0 8px ${cfg.color})` }}>{cfg.icon}</span>
-        <span style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: 2, color: cfg.color }}>{cfg.label}</span>
+    <div
+      style={{
+        position: "fixed", top: 54, left: "50%",
+        zIndex: 800, width: "min(620px, 92vw)",
+        animation: leaving
+          ? "bcbOut 0.26s cubic-bezier(.4,0,.6,1) both"
+          : "bcbIn 0.55s cubic-bezier(.2,1.1,.3,1) both",
+        filter: `drop-shadow(0 12px 40px rgba(0,0,0,0.55))`,
+      }}
+    >
+      {/* ── حلقة الحدود المتحركة (rotating gradient border) ── */}
+      <div style={{ position: "relative", borderRadius: 18, padding: 2, overflow: "hidden" }}>
+        <div
+          style={{
+            position: "absolute", inset: "-60%",
+            background: `conic-gradient(from 0deg, ${cfg.color}, transparent 25%, transparent 50%, ${cfg.color} 70%, transparent 95%, ${cfg.color})`,
+            animation: "bcbSpin 3.2s linear infinite",
+          }}
+        />
+        {/* ── جسم الإعلان ── */}
+        <div
+          style={{
+            position: "relative", zIndex: 1, borderRadius: 16,
+            background: `linear-gradient(135deg, ${cfg.color}1c, rgba(10,10,14,0.94) 45%, rgba(10,10,14,0.96))`,
+            backdropFilter: "blur(18px)",
+            boxShadow: `0 0 0 1px ${cfg.color}25 inset, 0 0 40px ${cfg.color}35`,
+            padding: "16px 18px",
+            display: "flex", alignItems: "center", gap: 14,
+            overflow: "hidden",
+          }}
+        >
+          {/* ── توهج خلفي طافي ── */}
+          <div
+            style={{
+              position: "absolute", top: "-40%", right: "-10%",
+              width: 160, height: 160, borderRadius: "50%",
+              background: `radial-gradient(circle, ${cfg.color}35, transparent 70%)`,
+              filter: "blur(10px)", animation: "bcbFloat 5s ease-in-out infinite",
+              pointerEvents: "none",
+            }}
+          />
+
+          {/* ── شعاع لمعة يعبر الإعلان ── */}
+          <div
+            style={{
+              position: "absolute", top: 0, bottom: 0, left: "-30%", width: "30%",
+              background: `linear-gradient(100deg, transparent, ${cfg.color}1f, transparent)`,
+              animation: "bcbShine 3.6s ease-in-out infinite",
+              pointerEvents: "none",
+            }}
+          />
+
+          {/* ── أيقونة + نوع ── */}
+          <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, zIndex: 1 }}>
+            <div
+              style={{
+                position: "relative", width: 44, height: 44, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: `radial-gradient(circle, ${cfg.color}2e, transparent 75%)`,
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute", inset: 0, borderRadius: "50%",
+                  border: `1.5px solid ${cfg.color}80`,
+                  animation: "bcbPulseRing 2.2s ease-out infinite",
+                }}
+              />
+              <span style={{ fontSize: 22, filter: `drop-shadow(0 0 10px ${cfg.color})`, position: "relative" }}>{cfg.icon}</span>
+            </div>
+            <span style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: cfg.color, fontWeight: 700, textShadow: `0 0 10px ${cfg.color}80` }}>
+              {cfg.label}
+            </span>
+          </div>
+
+          {/* ── النص ── */}
+          <div
+            style={{
+              position: "relative", zIndex: 1, flex: 1, fontFamily: "monospace", fontSize: 13.5,
+              color: "#f3f4f6", lineHeight: 1.7, direction: "rtl", textAlign: "right",
+              wordBreak: "break-word",
+            }}
+          >
+            {broadcast.message}
+          </div>
+
+          {/* ── زر الإغلاق ── */}
+          <button
+            onClick={handleClose}
+            onMouseEnter={() => setCloseHover(true)}
+            onMouseLeave={() => setCloseHover(false)}
+            style={{
+              position: "relative", zIndex: 1,
+              background: closeHover ? `${cfg.color}22` : "rgba(255,255,255,0.04)",
+              border: `1px solid ${closeHover ? cfg.color + "90" : cfg.color + "35"}`,
+              color: closeHover ? cfg.color : "#9ca3af",
+              borderRadius: 9, width: 30, height: 30,
+              cursor: "pointer", fontSize: 13, flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.18s ease",
+              transform: closeHover ? "scale(1.08) rotate(90deg)" : "scale(1) rotate(0deg)",
+            }}
+          >✕</button>
+        </div>
       </div>
 
-      {/* النص */}
-      <div style={{ flex: 1, fontFamily: "monospace", fontSize: 13, color: "#f3f4f6", lineHeight: 1.6, direction: "rtl", textAlign: "right" }}>
-        {broadcast.message}
-      </div>
-
-      {/* زر الإغلاق */}
-      <button
-        onClick={() => setDismissed(broadcast.message)}
-        style={{
-          background: "none", border: `1px solid ${cfg.color}40`,
-          color: "#6b7280", borderRadius: 8, width: 28, height: 28,
-          cursor: "pointer", fontSize: 13, flexShrink: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}
-      >✕</button>
+      <style>{`
+        @keyframes bcbIn {
+          0% { opacity: 0; transform: translate(-50%, -26px) scale(0.92); }
+          60% { opacity: 1; transform: translate(-50%, 3px) scale(1.015); }
+          100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+        }
+        @keyframes bcbOut {
+          0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -14px) scale(0.95); }
+        }
+        @keyframes bcbSpin { to { transform: rotate(360deg); } }
+        @keyframes bcbFloat {
+          0%, 100% { transform: translate(0, 0); opacity: 0.7; }
+          50% { transform: translate(-12px, 10px); opacity: 1; }
+        }
+        @keyframes bcbShine {
+          0% { left: -30%; opacity: 0; }
+          15% { opacity: 1; }
+          50% { left: 110%; opacity: 0.6; }
+          100% { left: 110%; opacity: 0; }
+        }
+        @keyframes bcbPulseRing {
+          0% { transform: scale(0.85); opacity: 0.9; }
+          70% { transform: scale(1.35); opacity: 0; }
+          100% { transform: scale(1.35); opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 }
