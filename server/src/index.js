@@ -5,12 +5,12 @@ import authRoutes from "./routes/auth.js";
 import playerRoutes from "./routes/player.js";
 import adminRoutes from './routes/admin.js';
 import broadcastRouter from "./routes/broadcast.js";
+import chatRouter from "./routes/chat.js";
 
-dotenv.config(); // يجب أن تكون في البداية
+dotenv.config();
 
 const app = express();
 
-// إعداد CORS الشامل
 app.use(cors({
   origin: [
     'http://localhost:5173',
@@ -20,19 +20,18 @@ app.use(cors({
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-key'] // أضفنا x-admin-key
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-key']
 }));
 
 app.options('*', cors());
 app.use(express.json());
 
-// ربط جميع المسارات (Routes)
 app.use("/auth", authRoutes);
 app.use("/api", playerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/broadcast", broadcastRouter);
+app.use("/api/chat", chatRouter);
 
-// المسارات الأساسية
 app.get("/", (req, res) => res.send("Solo Leveling MMO Server ✅ Running"));
 app.get("/health", (req, res) => res.json({ status: "ok", time: Date.now() }));
 
