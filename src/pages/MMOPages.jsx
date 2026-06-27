@@ -92,7 +92,7 @@ function BroadcastTakeover({ videoUrl, onDone }) {
         style={{
           position: "absolute", inset: 0,
           width: "100%", height: "100%", objectFit: "cover",
-          opacity: 0.85, // 🎬 شفافية خفيفة زي تنبيهات الدونيشن
+          opacity: 0.5, // 🎬 شفافية خفيفة زي تنبيهات الدونيشن
         }}
       />
 
@@ -154,7 +154,7 @@ export function BroadcastBanner({ fetchBroadcast }) {
             return data;
           });
         }
-      } catch {}
+      } catch { }
     };
     load();
     const t = setInterval(load, 20000);
@@ -176,8 +176,8 @@ export function BroadcastBanner({ fetchBroadcast }) {
       const audio = new Audio(soundUrl);
       audio.volume = 0.55;
       audioRef.current = audio;
-      audio.play().catch(() => {/* المتصفح يمنع autoplay تجاهل بصمت */});
-    } catch {}
+      audio.play().catch(() => {/* المتصفح يمنع autoplay تجاهل بصمت */ });
+    } catch { }
   }, [broadcast?.message, broadcast?.type, broadcast?.sound, broadcast?.updated_at, broadcast?.created_at, muted]);
 
   // شاشة Takeover — تشتغل مرة واحدة لكل إعلان جديد
@@ -198,9 +198,9 @@ export function BroadcastBanner({ fetchBroadcast }) {
   if (broadcast?.type === "takeover") {
     return takeoverVisible
       ? <BroadcastTakeover videoUrl={broadcast.message} onDone={() => {
-          setTakeoverVisible(false);
-          clearTimeout(takeoverTimerRef.current);
-        }} />
+        setTakeoverVisible(false);
+        clearTimeout(takeoverTimerRef.current);
+      }} />
       : null;
   }
 
@@ -1247,10 +1247,10 @@ function ChatMessage({ msg, currentUser, onReply, onReact, onDelete, onProfile, 
   const reactionsArr = Array.isArray(reactionsRaw)
     ? reactionsRaw
     : Object.entries(reactionsRaw).flatMap(([emoji, val]) =>
-        Array.isArray(val) ? val.map(v => ({ emoji, ...v }))
+      Array.isArray(val) ? val.map(v => ({ emoji, ...v }))
         : typeof val === 'number' ? Array(val).fill({ emoji })
-        : [{ emoji, ...val }]
-      );
+          : [{ emoji, ...val }]
+    );
   reactionsArr.forEach(r => {
     if (!reactions[r.emoji]) reactions[r.emoji] = { count: 0, mine: false };
     reactions[r.emoji].count++;
