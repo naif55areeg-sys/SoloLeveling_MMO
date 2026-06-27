@@ -1186,10 +1186,11 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
     const text = input.trim();
     if (!text || !currentUser || sending) return;
     if (text.length > MAX_CHARS) return;
+    const replyToId = replyTo?.id || null;
     setSending(true);
     setInput("");
     setReplyTo(null);
-    const result = await sendMessage(ROOM, text, replyTo?.id || null);
+    const result = await sendMessage(ROOM, text, replyToId);
     setSending(false);
     if (result) {
       setMessages(prev => {

@@ -463,21 +463,6 @@ export default function App() {
 
           <Nav activePage={page} onNavigate={setPage} level={state.level} statPoints={state.statPoints} />
 
-          {/* زر مخفي لفتح لوحة الأدمن — بديل عن اختصار Ctrl+M */}
-          <button
-            onClick={() => { setShowAdmin(true); setAdminAuth(false); setAdminPass(""); setAdminInputVisible(true); }}
-            title="Admin"
-            style={{
-              position: "fixed", bottom: 14, left: 14, zIndex: 500,
-              width: 30, height: 30, borderRadius: "50%",
-              background: "rgba(0,0,0,0.35)", border: "1px solid #ffffff14",
-              color: "#ffffff30", fontSize: 13, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              backdropFilter: "blur(6px)",
-            }}
-          >
-            ⚙
-          </button>
 
           {/* زر عائم لفتح صفحة الإنجازات */}
           <button
