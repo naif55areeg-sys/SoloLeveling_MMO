@@ -987,7 +987,15 @@ function ChatMessage({ msg, currentUser, onReply, onReact, onDelete, onProfile, 
 
   // تجميع الريأكشنز
   const reactions = {};
-  (msg.reactions || []).forEach(r => {
+  const reactionsRaw = msg.reactions || [];
+  const reactionsArr = Array.isArray(reactionsRaw)
+    ? reactionsRaw
+    : Object.entries(reactionsRaw).flatMap(([emoji, val]) =>
+        Array.isArray(val) ? val.map(v => ({ emoji, ...v }))
+        : typeof val === 'number' ? Array(val).fill({ emoji })
+        : [{ emoji, ...val }]
+      );
+  reactionsArr.forEach(r => {
     if (!reactions[r.emoji]) reactions[r.emoji] = { count: 0, mine: false };
     reactions[r.emoji].count++;
     if (currentUser && r.discord_id === currentUser.id) reactions[r.emoji].mine = true;
@@ -1243,7 +1251,8 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
     // optimistic update
     setMessages(prev => prev.map(m => {
       if (m.id !== msgId) return m;
-      const reactions = [...(m.reactions || [])];
+      const reactionsRaw2 = m.reactions || [];
+      const reactions = Array.isArray(reactionsRaw2) ? [...reactionsRaw2] : [];
       const existing = reactions.findIndex(r => r.emoji === emoji && r.discord_id === currentUser.id);
       if (existing >= 0) reactions.splice(existing, 1);
       else reactions.push({ emoji, discord_id: currentUser.id });
