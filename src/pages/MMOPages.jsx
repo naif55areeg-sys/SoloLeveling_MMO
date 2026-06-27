@@ -122,76 +122,100 @@ function BroadcastTakeover({ videoUrl, onDone }) {
 
 export function BroadcastBanner({ fetchBroadcast }) {
   const [broadcast, setBroadcast] = useState(null);
-  const [dismissed, setDismissed] = useState(null);
+  const [dismissedId, setDismissedId] = useState(null);      // ID فريد لكل إعلان
   const [closeHover, setCloseHover] = useState(false);
   const [muteHover, setMuteHover] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [muted, setMuted] = useState(false);
-  const lastSoundRef = useRef(null);
+  const lastSoundIdRef = useRef(null);                        // ID آخر صوت شغل
   const audioRef = useRef(null);
-  // 🖥️ تتبّع شاشة الـ Takeover الكاملة — تظهر مرة واحدة بس لكل إعلان جديد من نوعها
   const [takeoverVisible, setTakeoverVisible] = useState(false);
-  const lastTakeoverRef = useRef(null);
+  const lastTakeoverIdRef = useRef(null);                     // ID آخر takeover شغل
+  const takeoverTimerRef = useRef(null);
+
+  // نولد ID فريد لكل إعلان بناءً على محتواه + نوعه + توقيته
+  function makeBroadcastId(data) {
+    if (!data?.message) return null;
+    return `${data.type}||${data.message}||${data.updated_at || data.created_at || ""}`;
+  }
 
   useEffect(() => {
     if (!fetchBroadcast) return;
     const load = async () => {
-      const data = await fetchBroadcast();
-      if (data?.message) setBroadcast(data);
+      try {
+        const data = await fetchBroadcast();
+        if (data?.message) {
+          setBroadcast(prev => {
+            // لو الإعلان تغيّر نعيد ضبط leaving عشان الأنيميشن تشتغل صح
+            if (makeBroadcastId(prev) !== makeBroadcastId(data)) {
+              setLeaving(false);
+              setDismissedId(null);
+            }
+            return data;
+          });
+        }
+      } catch {}
     };
     load();
     const t = setInterval(load, 20000);
     return () => clearInterval(t);
   }, [fetchBroadcast]);
 
-  // 🔊 تشغيل صوت تلقائي مرة واحدة لما يوصل إعلان جديد (وما يتكرر مع كل polling)
+  // صوت مرة واحدة فقط لكل إعلان جديد
   useEffect(() => {
     if (!broadcast?.message) return;
-    if (lastSoundRef.current === broadcast.message) return;
-    lastSoundRef.current = broadcast.message;
+    const id = makeBroadcastId(broadcast);
+    if (lastSoundIdRef.current === id) return;
+    lastSoundIdRef.current = id;
     if (muted) return;
     const typeCfg = BROADCAST_TYPES[broadcast.type] || BROADCAST_TYPES.info;
     const soundUrl = broadcast.sound || typeCfg.sound;
     if (!soundUrl) return;
     try {
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
       const audio = new Audio(soundUrl);
       audio.volume = 0.55;
       audioRef.current = audio;
-      // المتصفحات تمنع التشغيل التلقائي أحياناً لو المستخدم لسا ما تفاعل مع الصفحة
-      audio.play().catch(() => {});
-    } catch {
-      /* رابط غير صالح أو تعذّر التشغيل — نتجاهل بصمت */
-    }
-  }, [broadcast?.message, broadcast?.type, broadcast?.sound, muted]);
+      audio.play().catch(() => {/* المتصفح يمنع autoplay تجاهل بصمت */});
+    } catch {}
+  }, [broadcast?.message, broadcast?.type, broadcast?.sound, broadcast?.updated_at, broadcast?.created_at, muted]);
 
-  // 🖥️ لما يجي إعلان جديد من نوع "takeover"، نشغّل الفيديو شاشة كاملة لين ينتهي
-  // (أو حد أقصى احتياطي 20 ثانية لو الفيديو طويل/ما انتهى الـ event تبعه) — مرة واحدة لكل رسالة
+  // شاشة Takeover — تشتغل مرة واحدة لكل إعلان جديد
   useEffect(() => {
     if (broadcast?.type !== "takeover" || !broadcast?.message) return;
-    if (lastTakeoverRef.current === broadcast.message) return;
-    lastTakeoverRef.current = broadcast.message;
-    setTakeoverVisible(true);
-    const t = setTimeout(() => setTakeoverVisible(false), 20000);
-    return () => clearTimeout(t);
-  }, [broadcast?.type, broadcast?.message]);
+    const id = makeBroadcastId(broadcast);
+    if (lastTakeoverIdRef.current === id) return;
+    lastTakeoverIdRef.current = id;
 
-  // 🖥️ إعلانات الـ takeover تشغّل فيديو ملء الشاشة فقط — ما تطلع كبانر عادي بالأعلى
+    setTakeoverVisible(true);
+    clearTimeout(takeoverTimerRef.current);
+    // احتياط 25 ثانية لو الفيديو ما انتهى تلقائياً
+    takeoverTimerRef.current = setTimeout(() => setTakeoverVisible(false), 25000);
+    return () => clearTimeout(takeoverTimerRef.current);
+  }, [broadcast?.type, broadcast?.message, broadcast?.updated_at, broadcast?.created_at]);
+
+  // Takeover: فيديو ملء الشاشة
   if (broadcast?.type === "takeover") {
     return takeoverVisible
-      ? <BroadcastTakeover videoUrl={broadcast.message} onDone={() => setTakeoverVisible(false)} />
+      ? <BroadcastTakeover videoUrl={broadcast.message} onDone={() => {
+          setTakeoverVisible(false);
+          clearTimeout(takeoverTimerRef.current);
+        }} />
       : null;
   }
 
   if (!broadcast?.message) return null;
-  // نخفيه لو المستخدم أغلقه (نحفظ ID أو النص عشان ما يرجع)
-  if (dismissed === broadcast.message) return null;
+
+  const broadcastId = makeBroadcastId(broadcast);
+  // مخفي لو المستخدم أغلقه
+  if (dismissedId === broadcastId) return null;
 
   const cfg = BROADCAST_TYPES[broadcast.type] || BROADCAST_TYPES.info;
 
   const handleClose = () => {
-    if (audioRef.current) { audioRef.current.pause(); }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setLeaving(true);
-    setTimeout(() => setDismissed(broadcast.message), 260);
+    setTimeout(() => setDismissedId(broadcastId), 260);
   };
 
   const toggleMute = () => {
