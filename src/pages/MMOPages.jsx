@@ -65,11 +65,94 @@ const TIER_COLOR_MAP = { E: "#ef4444", D: "#9ca3af", C: "#22d3ee", B: "#60a5fa",
 // ⚠️ ضع روابط الصوت هنا (mp3/ogg) — رابط مباشر للملف الصوتي لكل نوع إعلان.
 // لو ما تبي صوت لنوع معيّن، خله "" وما راح يشتغل له صوت.
 const BROADCAST_TYPES = {
-  info: { color: "#22d3ee", icon: "📢", label: "إعلان", sound: "https://res.cloudinary.com/dmzg48rcc/video/upload/v1782525747/DLVideo-_4__1_jbg0ug.mp3" },
+  info: { color: "#22d3ee", icon: "📢", label: "إعلان", sound: "" },
   warning: { color: "#fbbf24", icon: "⚠️", label: "تحذير", sound: "" },
-  event: { color: "#a855f7", icon: "🎉", label: "حدث", sound: "https://res.cloudinary.com/dmzg48rcc/video/upload/v1782525941/DLVideo-_5__b7w9iy.mp3" },
+  event: { color: "#a855f7", icon: "🎉", label: "حدث", sound: "" },
   boss: { color: "#ef4444", icon: "👹", label: "بوس", sound: "" },
+  takeover: { color: "#a855f7", icon: "🖥️", label: "نظام", sound: "" },
 };
+
+// ─── BROADCAST TAKEOVER (شاشة كاملة مؤقتة — تطلع لكل اللاعبين زي تنبيه الدونيشن) ──
+function BroadcastTakeover({ text }) {
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 2000,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        pointerEvents: "none", overflow: "hidden",
+        animation: "bctOverlayFade 4.5s ease-in-out both",
+      }}
+    >
+      {/* خلفية معتمة متوهجة */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "radial-gradient(circle at 50% 50%, rgba(168,85,247,0.22), rgba(5,5,8,0.82) 70%)",
+        backdropFilter: "blur(4px)",
+      }} />
+
+      {/* أشعة دوّارة بالخلفية */}
+      <div style={{
+        position: "absolute", width: "150%", height: "150%",
+        background: "conic-gradient(from 0deg, transparent, #a855f730, transparent 30%, #22d3ee30, transparent 60%, #fbbf2430, transparent)",
+        animation: "bctSpin 7s linear infinite",
+        filter: "blur(50px)",
+      }} />
+
+      {/* جزيئات متناثرة */}
+      {Array.from({ length: 14 }).map((_, i) => (
+        <div key={i} style={{
+          position: "absolute",
+          left: `${(i * 37) % 100}%`, top: `${(i * 53) % 100}%`,
+          width: 4, height: 4, borderRadius: "50%",
+          background: ["#a855f7", "#22d3ee", "#fbbf24"][i % 3],
+          boxShadow: `0 0 8px ${["#a855f7", "#22d3ee", "#fbbf24"][i % 3]}`,
+          animation: `bctFloat ${3 + (i % 4)}s ease-in-out infinite`,
+          animationDelay: `${i * 0.15}s`,
+        }} />
+      ))}
+
+      {/* بطاقة النص */}
+      <div style={{
+        position: "relative", padding: "40px 56px", textAlign: "center", maxWidth: "88vw",
+        animation: "bctPop 0.6s cubic-bezier(.2,1.4,.4,1) both",
+      }}>
+        <div style={{
+          fontFamily: "monospace", fontSize: 13, letterSpacing: 6, color: "#fbbf24",
+          marginBottom: 16, textShadow: "0 0 20px #fbbf2490",
+        }}>
+          ✦ NYVORA SYSTEM ✦
+        </div>
+        <div style={{
+          fontFamily: "'Orbitron',monospace", fontWeight: 900,
+          fontSize: "clamp(26px, 6vw, 54px)", color: "#fff",
+          textShadow: "0 0 30px #a855f7, 0 0 60px rgba(34,211,238,0.5)",
+          letterSpacing: 1, lineHeight: 1.3, whiteSpace: "pre-wrap", wordBreak: "break-word",
+        }}>
+          {text}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes bctOverlayFade {
+          0% { opacity: 0; }
+          8% { opacity: 1; }
+          82% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes bctPop {
+          0% { transform: scale(0.4) translateY(40px); opacity: 0; }
+          60% { transform: scale(1.08) translateY(-6px); opacity: 1; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        @keyframes bctSpin { to { transform: rotate(360deg); } }
+        @keyframes bctFloat {
+          0%, 100% { transform: translateY(0); opacity: 0.4; }
+          50% { transform: translateY(-22px); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 export function BroadcastBanner({ fetchBroadcast }) {
   const [broadcast, setBroadcast] = useState(null);
@@ -80,6 +163,9 @@ export function BroadcastBanner({ fetchBroadcast }) {
   const [muted, setMuted] = useState(false);
   const lastSoundRef = useRef(null);
   const audioRef = useRef(null);
+  // 🖥️ تتبّع شاشة الـ Takeover الكاملة — تظهر مرة واحدة بس لكل إعلان جديد من نوعها
+  const [takeoverVisible, setTakeoverVisible] = useState(false);
+  const lastTakeoverRef = useRef(null);
 
   useEffect(() => {
     if (!fetchBroadcast) return;
@@ -106,11 +192,27 @@ export function BroadcastBanner({ fetchBroadcast }) {
       audio.volume = 0.55;
       audioRef.current = audio;
       // المتصفحات تمنع التشغيل التلقائي أحياناً لو المستخدم لسا ما تفاعل مع الصفحة
-      audio.play().catch(() => { });
+      audio.play().catch(() => {});
     } catch {
       /* رابط غير صالح أو تعذّر التشغيل — نتجاهل بصمت */
     }
   }, [broadcast?.message, broadcast?.type, broadcast?.sound, muted]);
+
+  // 🖥️ لما يجي إعلان جديد من نوع "takeover"، نطلعه شاشة كاملة لمدة محدودة ثم نخفيه تلقائيًا
+  // (مرة واحدة فقط لكل رسالة — ما يتكرر مع كل polling لنفس الرسالة)
+  useEffect(() => {
+    if (broadcast?.type !== "takeover" || !broadcast?.message) return;
+    if (lastTakeoverRef.current === broadcast.message) return;
+    lastTakeoverRef.current = broadcast.message;
+    setTakeoverVisible(true);
+    const t = setTimeout(() => setTakeoverVisible(false), 4500);
+    return () => clearTimeout(t);
+  }, [broadcast?.type, broadcast?.message]);
+
+  // 🖥️ إعلانات الـ takeover تطلع شاشة كاملة فقط — ما تطلع كبانر عادي بالأعلى
+  if (broadcast?.type === "takeover") {
+    return takeoverVisible ? <BroadcastTakeover text={broadcast.message} /> : null;
+  }
 
   if (!broadcast?.message) return null;
   // نخفيه لو المستخدم أغلقه (نحفظ ID أو النص عشان ما يرجع)
@@ -1153,10 +1255,10 @@ function ChatMessage({ msg, currentUser, onReply, onReact, onDelete, onProfile, 
   const reactionsArr = Array.isArray(reactionsRaw)
     ? reactionsRaw
     : Object.entries(reactionsRaw).flatMap(([emoji, val]) =>
-      Array.isArray(val) ? val.map(v => ({ emoji, ...v }))
+        Array.isArray(val) ? val.map(v => ({ emoji, ...v }))
         : typeof val === 'number' ? Array(val).fill({ emoji })
-          : [{ emoji, ...val }]
-    );
+        : [{ emoji, ...val }]
+      );
   reactionsArr.forEach(r => {
     if (!reactions[r.emoji]) reactions[r.emoji] = { count: 0, mine: false };
     reactions[r.emoji].count++;
