@@ -3,6 +3,9 @@ import { defaultState, applyResets, maxStaminaForLevel } from "../constants/game
 
 const STORAGE_KEY = "sl-system-state-v1";
 
+// خريطة الستاتس المحلية (STR/AGI/VIT/INT/SENSE) لمفاتيح السيرفر (str/agi/vit/intl/sense)
+const STAT_KEY_MAP = { STR: "str", AGI: "agi", VIT: "vit", INT: "intl", SENSE: "sense" };
+
 // ⚙️ إعدادات شحن الستامينا المحدثة:
 const STAMINA_REGEN_INTERVAL = 5 * 60 * 1000; // 5 دقائق
 const STAMINA_REGEN_AMOUNT = 15;              // 15 نقطة في كل جولة
@@ -106,5 +109,57 @@ export function useSystemState() {
     });
   }, [persist]);
 
-  return { state, loaded, update };
+  // 🔄 دمج بيانات السيرفر (تستخدم لاكتشاف تعديلات الأدمن وتطبيقها محليًا فورًا)
+  // المبدأ: نقارن قيمة السيرفر بـ "آخر نسخة عرفنا إننا رفعناها" (lastSyncedSnapshot).
+  // - لو السيرفر يطابق آخر نسخة رفعناها  => ما فيه تعديل خارجي، نخلي تقدّمنا المحلي (ممكن يكون أحدث) كما هو.
+  // - لو السيرفر يختلف عن آخر نسخة رفعناها => فيه تعديل خارجي (أدمن) صار بعد آخر مزامنة، نطبّقه محليًا فورًا.
+  // كذا اللاعب يشوف تعديل الأدمن بالصفحة الرئيسية، وما تنرجع تعديلات الأدمن لما يحصل sync عادي بعدها.
+  const mergeServerStats = useCallback((serverData) => {
+    if (!serverData) return;
+    setState((prev) => {
+      if (!prev) return prev;
+      const snap = prev.lastSyncedSnapshot || {};
+      let changed = false;
+      const next = { ...prev, stats: { ...(prev.stats || {}) } };
+
+      if (serverData.level !== undefined && serverData.level !== snap.level) {
+        next.level = serverData.level;
+        changed = true;
+      }
+      if (serverData.exp !== undefined && serverData.exp !== snap.exp) {
+        next.exp = serverData.exp;
+        changed = true;
+      }
+      for (const [localKey, serverKey] of Object.entries(STAT_KEY_MAP)) {
+        if (serverData[serverKey] !== undefined && serverData[serverKey] !== snap[serverKey]) {
+          next.stats[localKey] = serverData[serverKey];
+          changed = true;
+        }
+      }
+
+      if (!changed) return prev; // ما فيه تعديل خارجي جديد
+
+      // حدّث "آخر نسخة معروفة" بالقيم الجديدة عشان أي مزامنة لاحقة ما تعتبرها تعديل مرة ثانية
+      next.lastSyncedSnapshot = {
+        level: next.level,
+        exp: next.exp,
+        str: next.stats.STR, agi: next.stats.AGI, vit: next.stats.VIT, intl: next.stats.INT, sense: next.stats.SENSE,
+      };
+      next.maxStamina = maxStaminaForLevel(next.level || 1);
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  // ✅ تثبيت "آخر نسخة رفعناها" بعد نجاح أي مزامنة طبيعية (push) — يمنع أي تعديل أدمن لاحق من الضياع
+  const markSynced = useCallback((pushedFields) => {
+    setState((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, lastSyncedSnapshot: { ...(prev.lastSyncedSnapshot || {}), ...pushedFields } };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  return { state, loaded, update, mergeServerStats, markSynced };
 }

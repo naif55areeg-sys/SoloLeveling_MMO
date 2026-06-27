@@ -22,7 +22,7 @@ const ALL_PAGES = ["HOME", "QUESTS", "STATS", "GATES", "RANK", "LOOT", "MMO", "B
 export default function App() {
   const [ready, setReady] = useState(false);
   const [page, setPage] = useState("HOME");
-  const { state, loaded, update } = useSystemState();
+  const { state, loaded, update, mergeServerStats, markSynced } = useSystemState();
   const { token, user, login, logout, syncPlayer, fetchLeaderboard, fetchBoss, attackBoss, challengePvP, spawnBoss, adminGetPlayer, adminUpdatePlayer, sendBroadcast, fetchBroadcast, fetchProfile, fetchMessages, sendMessage, deleteMessage, addReaction } = useAuth();
   const [levelUpInfo, setLevelUpInfo] = useState(null);
   const [lootInfo, setLootInfo] = useState(null);
@@ -49,9 +49,37 @@ export default function App() {
   // مزامنة تلقائية بعد كل تغيير مهم (level up)
   useEffect(() => {
     if (!state || !loaded || !token || !user) return;
-    syncPlayer(state);
+    (async () => {
+      const result = await syncPlayer(state);
+      if (result) {
+        markSynced({
+          level: state.level,
+          exp: state.exp,
+          str: state.stats?.STR,
+          agi: state.stats?.AGI,
+          vit: state.stats?.VIT,
+          intl: state.stats?.INT,
+          sense: state.stats?.SENSE,
+        });
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.level, state?.exp, state?.unlockedAchievements?.length]);
+
+  // 🔄 سحب أي تعديل خارجي صار على بيانات اللاعب (مثل تعديل الأدمن) وتطبيقه محليًا فورًا
+  // — أول ما تفتح اللعبة، وبعدها كل دقيقة، عشان الصفحة الرئيسية تتحدث بدون ما يحتاج
+  // اللاعب يسوي أي أكشن يفعّل المزامنة العادية (وبدون هذا، تعديل الأدمن ما ينعكس أبداً
+  // على الصفحة الرئيسية، وممكن ينعكس بقائمة الصيادين بس يرجع ينمسح بأول sync عادي).
+  useEffect(() => {
+    if (!loaded || !token || !user) return;
+    const pull = async () => {
+      const profile = await fetchProfile(user.id);
+      if (profile) mergeServerStats(profile);
+    };
+    pull();
+    const t = setInterval(pull, 60000);
+    return () => clearInterval(t);
+  }, [loaded, token, user, fetchProfile, mergeServerStats]);
 
   // Clear combat flash
   useEffect(() => {
