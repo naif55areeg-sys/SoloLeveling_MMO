@@ -492,21 +492,7 @@ export default function App() {
           <Nav activePage={page} onNavigate={setPage} level={state.level} statPoints={state.statPoints} />
 
 
-          {/* زر عائم لفتح صفحة الإنجازات */}
-          <button
-            onClick={() => setPage("ACHIEVEMENTS")}
-            title="الإنجازات"
-            style={{
-              position: "fixed", bottom: 14, left: 54, zIndex: 500,
-              width: 34, height: 34, borderRadius: "50%",
-              background: "rgba(251,191,36,0.12)", border: "1px solid #fbbf2450",
-              color: T.gold, fontSize: 15, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              backdropFilter: "blur(6px)", boxShadow: "0 0 12px rgba(251,191,36,0.25)",
-            }}
-          >
-            🏆
-          </button>
+
 
           {page === "HOME" && <HomePage state={state} onNavigate={setPage} user={user} onLogin={login} onLogout={logout} />}
           {page === "QUESTS" && (
@@ -523,6 +509,53 @@ export default function App() {
               state={state} onComplete={completeQuest} onDelete={deleteQuest}
               onAdd={addQuest} onPotion={usePotion} onRest={restPlayer} combatFlash={combatFlash}
               onUseSkill={useSkill}
+              onBattleEnd={({ playerHp, potions: newPotions, gate, monster, won, loot, exp: expGained, escaped }) => {
+                update((prev) => {
+                  let next = { ...prev, playerHp: playerHp ?? prev.playerHp };
+                  if (newPotions !== undefined) next.potions = newPotions;
+                  if (won && expGained) {
+                    next = gainExp(next, expGained);
+                    if (next._leveledUp > 0) {
+                      const prevRank = rankFromLevel(prev.level);
+                      const newRank = rankFromLevel(next.level);
+                      setLevelUpInfo({ newLevel: next.level, rank: newRank, rankChanged: prevRank.title !== newRank.title });
+                      next.potions = (next.potions || 0) + next._leveledUp;
+                    }
+                    delete next._leveledUp;
+                    // تحديث عداد البوابات
+                    if (gate) {
+                      const gs = { ...(next.gateStats || {}) };
+                      gs[gate] = (gs[gate] || 0) + 1;
+                      next.gateStats = gs;
+                    }
+                    // لوت
+                    if (loot) {
+                      const inventory = [...(next.inventory || [])];
+                      const idx = inventory.findIndex((it) => it.name === loot.name && it.tier === loot.tier);
+                      if (idx >= 0) inventory[idx] = { ...inventory[idx], qty: inventory[idx].qty + 1 };
+                      else inventory.push({ name: loot.name, tier: loot.tier, qty: 1 });
+                      next.inventory = inventory;
+                      if (loot.tier === "SSS") next.sssLootCount = (next.sssLootCount || 0) + 1;
+                      setLootInfo(loot);
+                    }
+                    // فحص الإنجازات
+                    const newlyUnlocked = checkNewAchievements(next);
+                    if (newlyUnlocked.length > 0) {
+                      next.unlockedAchievements = [...(next.unlockedAchievements || []), ...newlyUnlocked];
+                      setAchievementQueue((q) => [...q, ...newlyUnlocked.map((id) => ACHIEVEMENTS.find((a) => a.id === id)).filter(Boolean)]);
+                    }
+                    // خصم الستامينا
+                    const stCost = (GATE_DIFFICULTY[gate] || GATE_DIFFICULTY.NORMAL).stamina;
+                    next.stamina = Math.max(0, next.stamina - stCost);
+                    // عداد الهجمات
+                    const todayKey = todayStr();
+                    const prevAtk = next.lastGateAttackDate === todayKey ? (next.gateAttacksToday || 0) : 0;
+                    next.gateAttacksToday = prevAtk + 1;
+                    next.lastGateAttackDate = todayKey;
+                  }
+                  return next;
+                });
+              }}
             />
           )}
           {page === "RANK" && <RankPage state={state} />}

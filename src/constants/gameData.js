@@ -175,7 +175,7 @@ export const GATE_WEIGHTS = { E: 8, D: 14, C: 18, B: 20, A: 18, S: 13, SS: 6, SS
 export const GATE_DIFFICULTY = {
   NORMAL: { label: "NORMAL", color: T.cyan, hp: 100, exp: 120, stamina: 30, monsterDmg: [3, 8], dropChance: 0.50, weights: { E: 8, D: 14, C: 18, B: 20, A: 18, S: 13, SS: 6, SSS: 3 } },
   ELITE: { label: "ELITE", color: T.blue, hp: 220, exp: 220, stamina: 45, monsterDmg: [5, 12], dropChance: 0.62, weights: { E: 4, D: 9, C: 14, B: 18, A: 20, S: 18, SS: 11, SSS: 6 } },
-  BOSS: { label: "BOSS", color: T.gold, hp: 400, exp: 400, stamina: 65, monsterDmg: [8, 18], dropChance: 0.75, weights: { E: 1, D: 4, C: 8, B: 14, A: 18, S: 22, SS: 20, SSS: 13 } },
+  BOSS: { label: "BOSS", color: T.gold, hp: 400000, exp: 4000, stamina: 65, monsterDmg: [80, 90], dropChance: 0.75, weights: { E: 1, D: 4, C: 8, B: 14, A: 18, S: 22, SS: 20, SSS: 13 } },
   DUNGEON: { label: "DUNGEON", color: T.purple, hp: 650, exp: 60000000, stamina: 80, monsterDmg: [10, 22], dropChance: 0.90, weights: { E: 0.5, D: 1.5, C: 4, B: 9, A: 15, S: 22, SS: 25, SSS: 23 } },
 
   // 👑 بوابة ملك الدمار الأسطورية (المستحيلة) 💀
