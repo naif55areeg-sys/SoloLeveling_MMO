@@ -209,12 +209,14 @@ router.post("/broadcast", requireAuth, async (req, res) => {
   try {
     const { message, type = "info", duration = 30 } = req.body;
     if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
+    const now = Date.now();
     activeBroadcast = {
       message,
       type,
       sender: req.user.username,
-      sentAt: Date.now(),
-      expiresAt: Date.now() + duration * 1000,
+      sentAt: now,
+      updated_at: now,                          // ✅ مهم لـ makeBroadcastId بالواجهة
+      expiresAt: now + duration * 60 * 1000,    // ✅ duration بالدقائق لا الثواني
     };
     res.json({ ok: true, broadcast: activeBroadcast });
   } catch (e) {
