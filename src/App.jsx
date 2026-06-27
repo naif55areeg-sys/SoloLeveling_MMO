@@ -14,16 +14,16 @@ import { HomePage } from "./pages/HomePage";
 import { QuestListPage } from "./pages/QuestListPage";
 import { StatsPage, RankPage, LootPage, StatusBar, AchievementsPage } from "./pages/OtherPages";
 import { GatesPage } from "./pages/GatesPage";
-import { LeaderboardPage, WorldBossPage, DiscordLoginBanner, BroadcastBanner } from "./pages/MMOPages";
+import { LeaderboardPage, WorldBossPage, DiscordLoginBanner, BroadcastBanner, ChatPage } from "./pages/MMOPages";
 
 // الصفحات المتاحة — أضفنا MMO و BOSS
-const ALL_PAGES = ["HOME", "QUESTS", "STATS", "GATES", "RANK", "LOOT", "MMO", "BOSS"];
+const ALL_PAGES = ["HOME", "QUESTS", "STATS", "GATES", "RANK", "LOOT", "MMO", "BOSS", "CHAT"];
 
 export default function App() {
   const [ready, setReady] = useState(false);
   const [page, setPage] = useState("HOME");
   const { state, loaded, update } = useSystemState();
-  const { token, user, login, logout, syncPlayer, fetchLeaderboard, fetchBoss, attackBoss, challengePvP, spawnBoss, adminGetPlayer, adminUpdatePlayer, sendBroadcast, fetchBroadcast, fetchProfile } = useAuth();
+  const { token, user, login, logout, syncPlayer, fetchLeaderboard, fetchBoss, attackBoss, challengePvP, spawnBoss, adminGetPlayer, adminUpdatePlayer, sendBroadcast, fetchBroadcast, fetchProfile, fetchMessages, sendMessage, deleteMessage, addReaction } = useAuth();
   const [levelUpInfo, setLevelUpInfo] = useState(null);
   const [lootInfo, setLootInfo] = useState(null);
   const [achievementQueue, setAchievementQueue] = useState([]); // إنجازات بانتظار العرض
@@ -790,6 +790,18 @@ export default function App() {
             </div>
           )}
 
+          {page === "CHAT" && (
+            <ChatPage
+              currentUser={user}
+              fetchMessages={fetchMessages}
+              sendMessage={sendMessage}
+              deleteMessage={deleteMessage}
+              addReaction={addReaction}
+              fetchProfile={fetchProfile}
+              state={state}
+              isAdmin={user?.id === "YOUR_DISCORD_ID"}
+            />
+          )}
           {page === "BOSS" && (
             <WorldBossPage
               fetchBoss={fetchBoss}

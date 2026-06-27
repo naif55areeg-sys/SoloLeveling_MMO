@@ -219,5 +219,51 @@ export function useAuth() {
     } catch { return null; }
   }, [token]);
 
-  return { token, user, loading, login, logout, syncPlayer, fetchLeaderboard, fetchBoss, attackBoss, challengePvP, spawnBoss, fetchProfile, sendBroadcast, fetchBroadcast, adminEditPlayer, adminGetPlayer, adminUpdatePlayer };
+  // ── CHAT ──────────────────────────────────────────────────────────────
+  const fetchMessages = useCallback(async (room = "global", before = null) => {
+    try {
+      const url = `${SERVER}/api/chat/${room}?limit=50` + (before ? `&before=${before}` : "");
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      return await res.json();
+    } catch { return []; }
+  }, []);
+
+  const sendMessage = useCallback(async (room = "global", content, replyTo = null) => {
+    if (!token) return null;
+    try {
+      const res = await fetch(`${SERVER}/api/chat/${room}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ content, reply_to: replyTo }),
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch { return null; }
+  }, [token]);
+
+  const deleteMessage = useCallback(async (room = "global", msgId) => {
+    if (!token) return null;
+    try {
+      const res = await fetch(`${SERVER}/api/chat/${room}/${msgId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      return res.ok;
+    } catch { return false; }
+  }, [token]);
+
+  const addReaction = useCallback(async (room = "global", msgId, emoji) => {
+    if (!token) return null;
+    try {
+      const res = await fetch(`${SERVER}/api/chat/${room}/${msgId}/react`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ emoji }),
+      });
+      return res.ok;
+    } catch { return false; }
+  }, [token]);
+
+  return { token, user, loading, login, logout, syncPlayer, fetchLeaderboard, fetchBoss, attackBoss, challengePvP, spawnBoss, fetchProfile, sendBroadcast, fetchBroadcast, adminEditPlayer, adminGetPlayer, adminUpdatePlayer, fetchMessages, sendMessage, deleteMessage, addReaction };
 }

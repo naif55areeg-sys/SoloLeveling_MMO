@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { T, glass } from "../constants/tokens";
 import { rankFromLevel, ACHIEVEMENTS, ACHIEVEMENT_TIERS } from "../constants/gameData";
 
@@ -927,6 +927,535 @@ export function WorldBossPage({ fetchBoss, attackBoss, currentUser, state }) {
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+// ─── EMOJI PICKER DATA ────────────────────────────────────────────────────────
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "⚔️", "💀", "👑", "🎉", "💪", "🌟", "✨", "🏆", "💎", "🎯", "👊", "🤝"];
+
+// ─── RANK COLORS (for chat badges) ───────────────────────────────────────────
+function rankColor(level = 1) {
+  if (level >= 90) return { color: "#fbbf24", title: "SSS" };
+  if (level >= 70) return { color: "#a855f7", title: "SS" };
+  if (level >= 50) return { color: "#22d3ee", title: "S" };
+  if (level >= 35) return { color: "#60a5fa", title: "A" };
+  if (level >= 20) return { color: "#fbbf24", title: "B" };
+  if (level >= 10) return { color: "#22d3ee", title: "C" };
+  if (level >= 5) return { color: "#9ca3af", title: "D" };
+  return { color: "#ef4444", title: "E" };
+}
+
+// ─── CHAT AVATAR ─────────────────────────────────────────────────────────────
+function ChatAvatar({ user, size = 36, level = 1 }) {
+  const rank = rankColor(level);
+  const src = user?.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.discord_id || user.id}/${user.avatar}.png?size=64`
+    : null;
+  return (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      {src ? (
+        <img src={src} alt={user.username}
+          style={{ width: size, height: size, borderRadius: "50%", border: `2px solid ${rank.color}80`, objectFit: "cover", display: "block" }} />
+      ) : (
+        <div style={{ width: size, height: size, borderRadius: "50%", background: `${rank.color}25`, border: `2px solid ${rank.color}80`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: size * 0.4, color: rank.color, fontWeight: 700 }}>
+          {(user?.username || "?")[0].toUpperCase()}
+        </div>
+      )}
+      <div style={{ position: "absolute", bottom: -2, right: -2, background: rank.color, borderRadius: 4, padding: "1px 4px", fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: "#000", border: "1px solid rgba(0,0,0,0.4)", lineHeight: 1.4 }}>
+        {rank.title}
+      </div>
+    </div>
+  );
+}
+
+// ─── SINGLE MESSAGE ───────────────────────────────────────────────────────────
+function ChatMessage({ msg, currentUser, onReply, onReact, onDelete, onProfile, isAdmin }) {
+  const [showActions, setShowActions] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const isMe = currentUser && (msg.discord_id === currentUser.id);
+  const rank = rankColor(msg.level || 1);
+  const timeStr = (() => {
+    const d = new Date(msg.created_at);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000) return "الآن";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}د`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}س`;
+    return d.toLocaleDateString("ar-SA", { month: "short", day: "numeric" });
+  })();
+
+  // تجميع الريأكشنز
+  const reactions = {};
+  (msg.reactions || []).forEach(r => {
+    if (!reactions[r.emoji]) reactions[r.emoji] = { count: 0, mine: false };
+    reactions[r.emoji].count++;
+    if (currentUser && r.discord_id === currentUser.id) reactions[r.emoji].mine = true;
+  });
+
+  return (
+    <div
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => { setShowActions(false); setShowEmojiPicker(false); }}
+      style={{ display: "flex", gap: 10, padding: "6px 16px", alignItems: "flex-start", position: "relative", transition: "background 0.15s", background: showActions ? "rgba(139,92,246,0.04)" : "transparent", borderRadius: 8 }}
+    >
+      {/* أفاتار — قابل للضغط */}
+      <div onClick={() => onProfile && onProfile(msg)} style={{ cursor: "pointer", marginTop: 2 }}>
+        <ChatAvatar user={{ username: msg.username, avatar: msg.avatar, id: msg.discord_id }} size={36} level={msg.level || 1} />
+      </div>
+
+      {/* المحتوى */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* هيدر الرسالة */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
+          <span
+            onClick={() => onProfile && onProfile(msg)}
+            style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: rank.color, cursor: "pointer" }}
+          >
+            {msg.username}
+          </span>
+          <span style={{ fontFamily: "monospace", fontSize: 10, color: "#374151" }}>{timeStr}</span>
+          {msg.is_admin && (
+            <span style={{ fontFamily: "monospace", fontSize: 9, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid #fbbf2440", borderRadius: 4, padding: "1px 6px" }}>ADMIN</span>
+          )}
+          {isMe && (
+            <span style={{ fontFamily: "monospace", fontSize: 9, color: "#6b7280" }}>أنت</span>
+          )}
+        </div>
+
+        {/* رسالة الرد */}
+        {msg.reply_to_content && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5, padding: "4px 10px", background: "rgba(139,92,246,0.08)", borderLeft: "2px solid #a855f780", borderRadius: "0 6px 6px 0" }}>
+            <span style={{ fontFamily: "monospace", fontSize: 10, color: "#a855f7" }}>↩ {msg.reply_to_username}</span>
+            <span style={{ fontFamily: "monospace", fontSize: 10, color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{msg.reply_to_content}</span>
+          </div>
+        )}
+
+        {/* نص الرسالة */}
+        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#e9d5ff", lineHeight: 1.6, wordBreak: "break-word", direction: "rtl", textAlign: "right" }}>
+          {msg.content}
+        </div>
+
+        {/* الريأكشنز */}
+        {Object.keys(reactions).length > 0 && (
+          <div style={{ display: "flex", gap: 5, marginTop: 6, flexWrap: "wrap" }}>
+            {Object.entries(reactions).map(([emoji, { count, mine }]) => (
+              <button key={emoji} onClick={() => onReact(msg.id, emoji)}
+                style={{ display: "flex", alignItems: "center", gap: 4, background: mine ? "rgba(168,85,247,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${mine ? "#a855f780" : "rgba(255,255,255,0.1)"}`, borderRadius: 20, padding: "2px 9px", cursor: "pointer", fontSize: 13, fontFamily: "monospace", color: mine ? "#a855f7" : "#9ca3af", transition: "all 0.15s" }}>
+                {emoji} <span style={{ fontSize: 11 }}>{count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* أزرار الأكشن — تظهر عند hover */}
+      {showActions && currentUser && (
+        <div style={{ position: "absolute", left: 16, top: 4, display: "flex", gap: 4, background: "rgba(10,4,32,0.95)", border: "1px solid rgba(139,92,246,0.25)", borderRadius: 10, padding: "4px 6px", zIndex: 10, backdropFilter: "blur(12px)" }}>
+          {/* رد */}
+          <button onClick={() => onReply(msg)} title="رد"
+            style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 15, padding: "3px 6px", borderRadius: 6, transition: "all 0.15s" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(139,92,246,0.15)"; e.currentTarget.style.color = "#a855f7"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#6b7280"; }}>
+            ↩
+          </button>
+          {/* ريأكشن */}
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setShowEmojiPicker(p => !p)} title="ريأكشن"
+              style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 15, padding: "3px 6px", borderRadius: 6, transition: "all 0.15s" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(34,211,238,0.15)"; e.currentTarget.style.color = "#22d3ee"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#6b7280"; }}>
+              😄
+            </button>
+            {showEmojiPicker && (
+              <div style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, background: "rgba(10,4,32,0.98)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 12, padding: 10, zIndex: 100, backdropFilter: "blur(20px)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", display: "flex", flexWrap: "wrap", gap: 4, width: 220 }}>
+                {QUICK_EMOJIS.map(e => (
+                  <button key={e} onClick={() => { onReact(msg.id, e); setShowEmojiPicker(false); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, padding: 4, borderRadius: 6, transition: "background 0.1s" }}
+                    onMouseEnter={el => el.currentTarget.style.background = "rgba(139,92,246,0.2)"}
+                    onMouseLeave={el => el.currentTarget.style.background = "none"}>
+                    {e}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* حذف — للأدمن أو صاحب الرسالة */}
+          {(isMe || isAdmin) && (
+            <button onClick={() => onDelete(msg.id)} title="حذف"
+              style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 14, padding: "3px 6px", borderRadius: 6, transition: "all 0.15s" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.15)"; e.currentTarget.style.color = "#ef4444"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#6b7280"; }}>
+              🗑
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CHAT PAGE ────────────────────────────────────────────────────────────────
+export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessage, addReaction, fetchProfile, state, isAdmin }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [replyTo, setReplyTo] = useState(null);
+  const [onlineCount, setOnlineCount] = useState(0);
+  const [profilePlayer, setProfilePlayer] = useState(null);
+  const [profileData, setProfileData] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [unread, setUnread] = useState(0);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const bottomRef = useRef(null);
+  const scrollRef = useRef(null);
+  const inputRef = useRef(null);
+  const isAtBottomRef = useRef(true);   // نسخة ref لنستخدمها داخل callbacks بدون dependency
+  const messagesRef = useRef([]);     // نسخة ref للرسائل الحالية
+
+  const ROOM = "global";
+  const MAX_CHARS = 500;
+
+  // نزامن الـ refs مع الـ state
+  useEffect(() => { isAtBottomRef.current = isAtBottom; }, [isAtBottom]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // ── تحميل الرسائل — fetchMessages الوحيد في dependency array ─────────────
+  const load = useCallback(async (initial = false) => {
+    if (!fetchMessages) return;
+    let data;
+    try {
+      data = await fetchMessages(ROOM);
+    } catch { return; }
+    if (!Array.isArray(data)) return;
+
+    if (initial) {
+      setMessages(data);
+      setLoading(false);
+    } else {
+      // دمج الجديد بدون تكرار — نقرأ من الـ ref لا من state
+      const ids = new Set(messagesRef.current.map(m => m.id));
+      const fresh = data.filter(m => !ids.has(m.id));
+      if (fresh.length) {
+        setMessages(prev => [...prev, ...fresh]);
+        if (!isAtBottomRef.current) setUnread(u => u + fresh.length);
+      }
+    }
+
+    // عدد النشطين مؤخراً
+    if (data.length) {
+      const fiveMins = Date.now() - 5 * 60 * 1000;
+      const unique = new Set(data.filter(m => new Date(m.created_at) > fiveMins).map(m => m.discord_id));
+      setOnlineCount(unique.size || Math.min(data.length, 12));
+    }
+  }, [fetchMessages]);   // ✅ لا يعتمد على isAtBottom
+
+  // تحميل أولي مرة واحدة
+  useEffect(() => { load(true); }, [load]);
+
+  // polling ثابت — يُشغَّل مرة واحدة ولا يعيد التشغيل
+  useEffect(() => {
+    if (!fetchMessages) return;
+    const id = setInterval(() => load(false), 3000);
+    return () => clearInterval(id);
+  }, [load]);
+
+  // ── تمرير تلقائي للأسفل ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (isAtBottom) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isAtBottom]);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBot = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    setIsAtBottom(atBot);
+    setShowScrollBtn(!atBot);
+    if (atBot) setUnread(0);
+  };
+
+  const scrollToBottom = () => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    setUnread(0);
+  };
+
+  // ── إرسال رسالة ──────────────────────────────────────────────────────────
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text || !currentUser || sending) return;
+    if (text.length > MAX_CHARS) return;
+    setSending(true);
+    setInput("");
+    setReplyTo(null);
+    const result = await sendMessage(ROOM, text, replyTo?.id || null);
+    setSending(false);
+    if (result) {
+      setMessages(prev => {
+        const ids = new Set(prev.map(m => m.id));
+        return ids.has(result.id) ? prev : [...prev, result];
+      });
+      setIsAtBottom(true);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  // ── حذف رسالة ────────────────────────────────────────────────────────────
+  const handleDelete = async (msgId) => {
+    if (!window.confirm("حذف هذه الرسالة؟")) return;
+    const ok = await deleteMessage(ROOM, msgId);
+    if (ok) setMessages(prev => prev.filter(m => m.id !== msgId));
+  };
+
+  // ── ريأكشن ────────────────────────────────────────────────────────────────
+  const handleReact = async (msgId, emoji) => {
+    if (!currentUser) return;
+    await addReaction(ROOM, msgId, emoji);
+    // optimistic update
+    setMessages(prev => prev.map(m => {
+      if (m.id !== msgId) return m;
+      const reactions = [...(m.reactions || [])];
+      const existing = reactions.findIndex(r => r.emoji === emoji && r.discord_id === currentUser.id);
+      if (existing >= 0) reactions.splice(existing, 1);
+      else reactions.push({ emoji, discord_id: currentUser.id });
+      return { ...m, reactions };
+    }));
+  };
+
+  // ── عرض البروفايل ─────────────────────────────────────────────────────────
+  const openProfile = async (msg) => {
+    setProfilePlayer({ discord_id: msg.discord_id, username: msg.username, avatar: msg.avatar, level: msg.level || 1 });
+    setProfileData(null);
+    setProfileLoading(true);
+    if (fetchProfile) {
+      const data = await fetchProfile(msg.discord_id);
+      setProfileData(data);
+    }
+    setProfileLoading(false);
+  };
+
+  // ── تجميع الرسائل (تواريخ فاصلة) ────────────────────────────────────────
+  const grouped = [];
+  let lastDay = null;
+  messages.forEach((msg, i) => {
+    const day = new Date(msg.created_at).toDateString();
+    if (day !== lastDay) {
+      grouped.push({ type: "date", day, key: `date-${i}` });
+      lastDay = day;
+    }
+    grouped.push({ type: "msg", msg, key: msg.id });
+  });
+
+  const canSend = !!currentUser && input.trim().length > 0 && input.trim().length <= MAX_CHARS;
+
+  return (
+    <div style={{
+      height: "100vh", display: "flex", flexDirection: "column",
+      background: "radial-gradient(ellipse 70% 45% at 50% -8%, rgba(124,58,237,0.12), transparent 60%), #04000f",
+      animation: "pageInRight 0.35s ease-out both",
+    }}>
+      <style>{`
+        @keyframes chatMsgIn { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+        @keyframes typingDot { 0%,80%,100%{transform:translateY(0);opacity:.4;} 40%{transform:translateY(-5px);opacity:1;} }
+        .chat-input::placeholder { color: #374151; }
+        .chat-input:focus { border-color: rgba(168,85,247,0.5) !important; box-shadow: 0 0 0 2px rgba(168,85,247,0.12) !important; }
+      `}</style>
+
+      {/* ── HEADER ── */}
+      <div style={{
+        flexShrink: 0, padding: "14px 20px",
+        background: "rgba(10,4,32,0.85)",
+        borderBottom: "1px solid rgba(139,92,246,0.2)",
+        backdropFilter: "blur(20px)",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        paddingTop: 72,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ position: "relative" }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>💬</div>
+            <div style={{ position: "absolute", bottom: -2, right: -2, width: 12, height: 12, borderRadius: "50%", background: "#22c55e", border: "2px solid #04000f", boxShadow: "0 0 8px #22c55e", animation: "pulseOpacity 2s infinite" }} />
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 16, fontWeight: 700, color: "#e9d5ff" }}>شات الصيادين</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e" }} />
+              <span style={{ fontFamily: "monospace", fontSize: 11, color: "#6b7280" }}>{onlineCount} نشط مؤخراً</span>
+              <span style={{ color: "#374151", fontSize: 10 }}>·</span>
+              <span style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: 2, color: "#a855f7" }}>GLOBAL</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ fontFamily: "monospace", fontSize: 10, color: "#374151", textAlign: "left" }}>
+          {messages.length} رسالة
+        </div>
+      </div>
+
+      {/* ── MESSAGES ── */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}
+      >
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 14, color: "#6b7280", fontFamily: "monospace", fontSize: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", border: "2px solid #a855f740", borderTopColor: "#a855f7", animation: "auraSpin 0.9s linear infinite" }} />
+            تحميل الرسائل...
+          </div>
+        ) : messages.length === 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12, color: "#374151", fontFamily: "monospace", padding: 32, textAlign: "center" }}>
+            <div style={{ fontSize: 48, filter: "grayscale(0.4)" }}>💬</div>
+            <div style={{ fontSize: 13, color: "#6b7280" }}>لا توجد رسائل بعد</div>
+            <div style={{ fontSize: 11, color: "#374151" }}>كن أول من يبدأ المحادثة!</div>
+            <div style={{ marginTop: 16, padding: "12px 20px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, fontSize: 11, color: "#fbbf24", lineHeight: 1.7, direction: "rtl" }}>
+
+              <code style={{ color: "#22d3ee", background: "rgba(34,211,238,0.1)", padding: "1px 6px", borderRadius: 4 }}>l</code><br />
+              <code style={{ color: "#22d3ee", background: "rgba(34,211,238,0.1)", padding: "1px 6px", borderRadius: 4 }}></code>
+            </div>
+          </div>
+        ) : (
+          <>
+            {grouped.map((item) => {
+              if (item.type === "date") {
+                const label = (() => {
+                  const d = new Date(item.day);
+                  const now = new Date();
+                  if (d.toDateString() === now.toDateString()) return "اليوم";
+                  const y = new Date(now); y.setDate(now.getDate() - 1);
+                  if (d.toDateString() === y.toDateString()) return "أمس";
+                  return d.toLocaleDateString("ar-SA", { weekday: "long", month: "long", day: "numeric" });
+                })();
+                return (
+                  <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", margin: "4px 0" }}>
+                    <div style={{ flex: 1, height: 1, background: "rgba(139,92,246,0.15)" }} />
+                    <span style={{ fontFamily: "monospace", fontSize: 10, color: "#374151", letterSpacing: 1 }}>{label}</span>
+                    <div style={{ flex: 1, height: 1, background: "rgba(139,92,246,0.15)" }} />
+                  </div>
+                );
+              }
+              return (
+                <div key={item.key} style={{ animation: "chatMsgIn 0.2s ease-out both" }}>
+                  <ChatMessage
+                    msg={item.msg}
+                    currentUser={currentUser}
+                    onReply={setReplyTo}
+                    onReact={handleReact}
+                    onDelete={handleDelete}
+                    onProfile={openProfile}
+                    isAdmin={isAdmin}
+                  />
+                </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </>
+        )}
+      </div>
+
+      {/* ── SCROLL TO BOTTOM BUTTON ── */}
+      {showScrollBtn && (
+        <div style={{ position: "absolute", bottom: 110, left: "50%", transform: "translateX(-50%)", zIndex: 50, animation: "fadeUp 0.2s ease-out" }}>
+          <button onClick={scrollToBottom}
+            style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(10,4,32,0.95)", border: "1px solid rgba(168,85,247,0.5)", borderRadius: 20, padding: "7px 16px", cursor: "pointer", color: "#a855f7", fontFamily: "monospace", fontSize: 12, backdropFilter: "blur(12px)", boxShadow: "0 4px 20px rgba(0,0,0,0.6)" }}>
+            {unread > 0 && <span style={{ background: "#a855f7", color: "#fff", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700 }}>{unread}</span>}
+            ↓ رسائل جديدة
+          </button>
+        </div>
+      )}
+
+      {/* ── INPUT AREA ── */}
+      <div style={{
+        flexShrink: 0,
+        background: "rgba(10,4,32,0.9)",
+        borderTop: "1px solid rgba(139,92,246,0.15)",
+        backdropFilter: "blur(20px)",
+        padding: "10px 16px 16px",
+      }}>
+        {/* بانر الرد */}
+        {replyTo && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", marginBottom: 8, background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 8 }}>
+            <span style={{ fontFamily: "monospace", fontSize: 11, color: "#a855f7" }}>↩ ردًا على {replyTo.username}</span>
+            <span style={{ fontFamily: "monospace", fontSize: 11, color: "#6b7280", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{replyTo.content}</span>
+            <button onClick={() => setReplyTo(null)} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>✕</button>
+          </div>
+        )}
+
+        {!currentUser ? (
+          <div style={{ textAlign: "center", fontFamily: "monospace", fontSize: 13, color: "#6b7280", padding: "12px 0" }}>
+            🔒 سجّل دخولك بديسكورد للمشاركة في الشات
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
+            {/* أفاتار المستخدم */}
+            <ChatAvatar user={{ username: currentUser.username, avatar: currentUser.avatar, id: currentUser.id }} size={36} level={state?.level || 1} />
+
+            {/* صندوق الكتابة */}
+            <div style={{ flex: 1, position: "relative" }}>
+              <textarea
+                ref={inputRef}
+                className="chat-input"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={`رسالة للصيادين... (Enter للإرسال)`}
+                rows={1}
+                maxLength={MAX_CHARS}
+                style={{
+                  width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(139,92,246,0.25)",
+                  borderRadius: 12, padding: "10px 14px", color: "#e9d5ff", fontFamily: "'Inter', sans-serif",
+                  fontSize: 14, resize: "none", boxSizing: "border-box", lineHeight: 1.5,
+                  direction: "rtl", transition: "border-color 0.2s, box-shadow 0.2s",
+                  overflowY: "hidden",
+                  maxHeight: 120, overflowY: "auto",
+                }}
+                onInput={e => {
+                  e.target.style.height = "auto";
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                }}
+              />
+              {/* عداد الحروف */}
+              {input.length > MAX_CHARS * 0.7 && (
+                <div style={{ position: "absolute", bottom: 8, left: 10, fontFamily: "monospace", fontSize: 10, color: input.length >= MAX_CHARS ? "#ef4444" : "#6b7280" }}>
+                  {input.length}/{MAX_CHARS}
+                </div>
+              )}
+            </div>
+
+            {/* زر الإرسال */}
+            <button
+              onClick={handleSend}
+              disabled={!canSend || sending}
+              style={{
+                width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                background: canSend ? "linear-gradient(135deg, #7c3aed, #a855f7)" : "rgba(255,255,255,0.04)",
+                border: `1px solid ${canSend ? "#a855f7" : "rgba(255,255,255,0.08)"}`,
+                color: canSend ? "#fff" : "#374151",
+                fontSize: 18, cursor: canSend ? "pointer" : "default",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.2s",
+                boxShadow: canSend ? "0 0 16px rgba(168,85,247,0.4)" : "none",
+                transform: sending ? "scale(0.92)" : "scale(1)",
+              }}
+            >
+              {sending ? "⏳" : "↑"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── PROFILE MODAL ── */}
+      {profilePlayer && (
+        <ProfileModal
+          player={profilePlayer}
+          profileData={profileData}
+          loading={profileLoading}
+          currentUser={currentUser}
+          onClose={() => { setProfilePlayer(null); setProfileData(null); }}
+          onChallenge={() => { }}
+        />
       )}
     </div>
   );

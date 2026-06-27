@@ -335,6 +335,7 @@ const NAV_PAGES = [
   { id: "LOOT", label: "LOOT", icon: "🎁" },
   { id: "MMO", label: "RANKING", icon: "🌍", mmo: true },
   { id: "BOSS", label: "BOSS", icon: "💀", mmo: true, bossColor: true },
+  { id: "CHAT", label: "CHAT", icon: "💬", mmo: true },
 ];
 
 export function Nav({ activePage, onNavigate, level, statPoints }) {
