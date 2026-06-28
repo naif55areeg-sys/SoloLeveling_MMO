@@ -1,4 +1,4 @@
-import { TIERS, ITEM_POOL, GATE_DIFFICULTY, SLOT_STAT, tierBonusValue, ACHIEVEMENTS } from "./gameData";
+import { TIERS, ITEM_POOL, GATE_DIFFICULTY, SLOT_STAT, tierBonusValue, ACHIEVEMENTS, SHADOW_MAX_DEPLOYED, SHADOW_EXP_PER_BATTLE, SHADOW_DUPLICATE_EXP, shadowExpToNext, shadowStatsBuff } from "./gameData";
 
 // ─── SYNC TO SERVER (Backend Connection) ──────────────────────────────────────
 export async function syncToServer(state, user) {
@@ -108,16 +108,87 @@ export function getEquipmentBonuses(state) {
   return bonuses;
 }
 
+export function getShadowSoldierBonuses(state) {
+  const bonuses = { STR: 0, AGI: 0, VIT: 0, INT: 0, SENSE: 0 };
+  const soldiers = state.shadowSoldiers || [];
+  const deployed = state.equippedShadows || [];
+  for (const id of deployed) {
+    const soldier = soldiers.find((s) => s.id === id);
+    if (!soldier) continue;
+    const buff = shadowStatsBuff(soldier);
+    bonuses.STR += buff.STR;
+    bonuses.AGI += buff.AGI;
+    bonuses.VIT += buff.VIT;
+    bonuses.INT += buff.INT;
+    bonuses.SENSE += buff.SENSE;
+  }
+  return bonuses;
+}
+
 export function effectiveStats(state) {
   const bonus = getEquipmentBonuses(state);
+  const shadowBonus = getShadowSoldierBonuses(state);
   const s = state.stats;
   return {
-    STR: s.STR + bonus.STR,
-    AGI: s.AGI + bonus.AGI,
-    VIT: s.VIT + bonus.VIT,
-    INT: s.INT + bonus.INT,
-    SENSE: s.SENSE + bonus.SENSE,
+    STR: s.STR + bonus.STR + shadowBonus.STR,
+    AGI: s.AGI + bonus.AGI + shadowBonus.AGI,
+    VIT: s.VIT + bonus.VIT + shadowBonus.VIT,
+    INT: s.INT + bonus.INT + shadowBonus.INT,
+    SENSE: s.SENSE + bonus.SENSE + shadowBonus.SENSE,
   };
+}
+
+// ─── SHADOW SOLDIER HELPERS ───────────────────────────────────────────────────
+// يرفع خبرة جندي ظل واحد ويتعامل مع اللفل أب (يرجع نسخة جديدة من الجندي)
+export function gainShadowExp(soldier, amount) {
+  let { level = 1, exp = 0 } = soldier;
+  exp += amount;
+  let expToNext = shadowExpToNext(level);
+  let leveledUp = 0;
+  while (exp >= expToNext) {
+    exp -= expToNext;
+    level += 1;
+    expToNext = shadowExpToNext(level);
+    leveledUp += 1;
+  }
+  return { ...soldier, level, exp, _leveledUp: leveledUp };
+}
+
+// يستقبل state كامل ويرفع خبرة كل الجنود المنشورين (يُستخدم بعد كل معركة بوابة منتصرة)
+export function trainDeployedShadows(state) {
+  const soldiers = state.shadowSoldiers || [];
+  const deployed = new Set(state.equippedShadows || []);
+  if (deployed.size === 0) return state;
+  const updated = soldiers.map((s) => deployed.has(s.id)
+    ? { ...gainShadowExp(s, SHADOW_EXP_PER_BATTLE), uses: (s.uses || 0) + 1 }
+    : s
+  );
+  return { ...state, shadowSoldiers: updated };
+}
+
+// يستقبل state ومعلومات استخراج تم تقرير نجاحها مسبقاً (الاحتمال يُحسب مرة واحدة
+// بصفحة البوابات) — يدمجها بالـ state: جندي جديد أو خبرة إضافية لجندي موجود بنفس الاسم
+export function commitShadowExtraction(state, extracted) {
+  if (!extracted) return state;
+  const soldiers = state.shadowSoldiers || [];
+  const existing = soldiers.find((s) => s.name === extracted.name);
+
+  if (existing) {
+    const updated = soldiers.map((s) => s.id === existing.id ? gainShadowExp(s, SHADOW_DUPLICATE_EXP) : s);
+    return { ...state, shadowSoldiers: updated };
+  }
+
+  const soldier = { id: `shadow_${Date.now()}`, name: extracted.name, tier: extracted.tier, level: 1, exp: 0, uses: 0, extractedAt: Date.now() };
+  return { ...state, shadowSoldiers: [...soldiers, soldier] };
+}
+
+export function toggleShadowDeploy(state, id) {
+  const deployed = state.equippedShadows || [];
+  if (deployed.includes(id)) {
+    return { ...state, equippedShadows: deployed.filter((d) => d !== id) };
+  }
+  if (deployed.length >= SHADOW_MAX_DEPLOYED) return state;
+  return { ...state, equippedShadows: [...deployed, id] };
 }
 
 // ─── STAMINA / LEVEL SCALING ──────────────────────────────────────────────────
@@ -202,6 +273,8 @@ export function defaultState() {
     stats: { STR: 10000, AGI: 10, VIT: 10, INT: 10, SENSE: 10 },
     inventory: [],
     equipped: {},
+    shadowSoldiers: [],     // جنود الظل المُستخرجين من البوسات
+    equippedShadows: [],    // الجنود المنشورين حالياً (يعطون ستات بفس)
     stamina: 700,
     maxStamina: maxStaminaForLevel(1), // يبدأ بـ 700 ويرتفع مع كل لفل
     lastRest: Date.now(),

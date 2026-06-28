@@ -333,6 +333,7 @@ const NAV_PAGES = [
   { id: "GATES", label: "GATES", icon: "🌀" },
   { id: "RANK", label: "RANK", icon: "🏅" },
   { id: "LOOT", label: "LOOT", icon: "🎁" },
+  { id: "SHADOW", label: "SHADOW", icon: "🌑" },
   { id: "MMO", label: "RANKING", icon: "🌍", mmo: true },
   { id: "BOSS", label: "BOSS", icon: "💀", mmo: true, bossColor: true },
   { id: "CHAT", label: "CHAT", icon: "💬", mmo: true },

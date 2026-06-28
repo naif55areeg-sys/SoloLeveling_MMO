@@ -1,6 +1,6 @@
 import { T } from "./tokens";
 
-export const PAGES = ["HOME", "QUESTS", "STATS", "GATES", "RANK", "LOOT"];
+export const PAGES = ["HOME", "QUESTS", "STATS", "GATES", "RANK", "LOOT", "SHADOW"];
 export const STAT_KEYS = ["STR", "AGI", "VIT", "INT", "SENSE"];
 
 export const LIMITS = {
@@ -191,7 +191,39 @@ export const GATE_DIFFICULTY = {
   },
 };
 
-// ─── EQUIPMENT ────────────────────────────────────────────────────────────────
+// ─── SHADOW SOLDIERS ──────────────────────────────────────────────────────────
+// نظام جنود الظل: بعد هزيمة بوس قوي (BOSS/DUNGEON/DESTRUCTION_KING) فيه فرصة
+// "تُحيي" الوحش كجندي ظل يرافقك ويعطيك إحصائيات إضافية. كل ما استخدمته بالمعارك
+// (وهو مُجهّز بخانات النشر) يكسب خبرة ويقوى أكثر.
+export const SHADOW_EXTRACT = {
+  BOSS: { chance: 0.25, statBase: 6, label: "نخبة" },
+  DUNGEON: { chance: 0.35, statBase: 12, label: "خطير" },
+  DESTRUCTION_KING: { chance: 0.70, statBase: 30, label: "أسطوري" },
+};
+
+export const SHADOW_TIER_COLOR = {
+  BOSS: T.gold,
+  DUNGEON: T.purple,
+  DESTRUCTION_KING: "#ff003c",
+};
+
+export const SHADOW_MAX_DEPLOYED = 3;     // أقصى عدد جنود ظل يمكن نشرهم بنفس الوقت
+export const SHADOW_LEVEL_GROWTH = 2;     // كل لفل يزيد +2 لكل إحصائية
+export const SHADOW_EXP_PER_BATTLE = 12;  // خبرة الجندي المنشور عن كل معركة منتصرة
+export const SHADOW_DUPLICATE_EXP = 40;   // خبرة إضافية إذا استخرجت نفس الوحش مرة ثانية
+
+export function shadowExpToNext(level) {
+  return 20 + level * 15;
+}
+
+// إحصائيات الجندي الحالية (تُحسب من رتبته + لفله، بدون تخزين أرقام ثابتة)
+export function shadowStatsBuff(soldier) {
+  const cfg = SHADOW_EXTRACT[soldier.tier] || { statBase: 4 };
+  const per = cfg.statBase + (soldier.level || 1) * SHADOW_LEVEL_GROWTH;
+  return { STR: per, AGI: per, VIT: per, INT: per, SENSE: per };
+}
+
+
 // الكلمات المفتاحية لكل نوع — weapon · claw · orb · gem · pouch
 export function itemShapeType(name) {
   if (/سيف|خنجر|نصل/.test(name)) return "weapon";

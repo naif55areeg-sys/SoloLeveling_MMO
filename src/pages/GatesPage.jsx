@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { T, glass } from "../constants/tokens";
-import { GATE_DIFFICULTY, RANK_SKILLS, rankFromLevel, GATE_WEIGHTS } from "../constants/gameData";
+import { GATE_DIFFICULTY, RANK_SKILLS, rankFromLevel, GATE_WEIGHTS, SHADOW_EXTRACT } from "../constants/gameData";
 import { HudCorners } from "../components/UI";
 import { hpColor, maxPlayerHp, todayStr, effectiveStats, rollLoot } from "../constants/gameLogic";
 import { SoundManager } from "../utils/soundManager";
@@ -174,20 +174,21 @@ function SparkCanvas({ trigger, color, isBoss, side }) {
 }
 
 // ─── MONSTERS ─────────────────────────────────────────────────────────────────
+// أسماء مأخوذة من عالم Solo Leveling نفسه — مرتبة حسب قوة كل بوابة
 const MONSTERS = {
-  NORMAL: ["غوبلن المغارة", "ذئب الظلام", "ضفدع السم", "خنزير وحشي", "وحش الصخر"],
-  ELITE: ["أورك المحارب", "ذئب الجليد", "عقرب الصحراء", "تنين صغير", "ساحر الظلام"],
-  BOSS: ["ملك الغوبلن", "الذئب الأسطوري", "عملاق الجبل", "تنين الجليد", "قائد الشياطين"],
-  DUNGEON: ["كاساكا ملك الأفاعي", "ملكة النمل الإمبراطورية", "الشبح الجبار", "ملك الجن الأحمر", "تنين الهاوية الأسود"],
-  DESTRUCTION_KING: ["ملك الدمار الأسطوري"],
+  NORMAL: ["غوبلن الكهف", "العنكبوت الكهفي العاتي", "خفاش الظلام", "جرذ الموتى الزاحف", "دودة الأرض العملاقة"],
+  ELITE: ["أورك المحارب", "تمثال الحارس الحجري", "العنكبوت الملكة الصغرى", "ذئب الجليد الكاسر", "زومبي الزنزانة المتعفن"],
+  BOSS: ["إيغريس - القائد الأحمر الدموي", "تانك - القائد الأزرق الفولاذي", "آيرون - قائد الفرسان الحديدي", "باروكا حامل الخنجر الملعون", "كاماش الصغير"],
+  DUNGEON: ["كاساكا ملك الثعابين", "بيرو - أقوى جندي نمل قبل الاستخراج", "يوغومنت ملك الجن الجليدي", "ملكة النمل الحمراء", "فارس الموت الجليدي"],
+  DESTRUCTION_KING: ["أنتاريس، ملك الدمار"],
 };
 
 const GATE_VISUALS = {
-  NORMAL: { label: "بوابة عادية", rank: "E~C", icon: "◈", gradient: "linear-gradient(135deg,#0e4a4a,#0a2a2a)", border: T.cyan, glow: "#22d3ee", portalColor: ["#22d3ee", "#0891b2"], desc: "مغارات ومناطق مشبعة بالطاقة" },
-  ELITE: { label: "بوابة نخبة", rank: "B~A", icon: "◆", gradient: "linear-gradient(135deg,#0e1f4a,#060d2a)", border: T.blue, glow: "#7c3aed", portalColor: ["#4600c7", "#ae00ff"], desc: "طاقة أعلى، وحوش متطورة" },
-  BOSS: { label: "بوابة بوس", rank: "A~S", icon: "❖", gradient: "linear-gradient(135deg,#3a2a00,#1a1000)", border: T.gold, glow: "#fbbf24", portalColor: ["#fbbf24", "#d97706"], desc: "كائن واحد بقوة هائلة" },
-  DUNGEON: { label: "زنزانة", rank: "S~SSS", icon: "⬡", gradient: "linear-gradient(135deg,#2a0a3a,#120018)", border: T.purple, glow: "#f75555", portalColor: ["#da0000", "#d93428"], desc: "أخطر بوابة — مكافأة عالية" },
-  DESTRUCTION_KING: { label: "عرش ملك الدمار", rank: "EX", icon: "💀", gradient: "linear-gradient(135deg,#2a0005,#0a0002)", border: "#ff003c", glow: "#ff003c", portalColor: ["#ff003c", "#5a000c"], desc: "نهاية العالم" },
+  NORMAL: { label: "E_بوابة", rank: "E~D", icon: "◈", gradient: "linear-gradient(135deg,#0e4a4a,#0a2a2a)", border: T.cyan, glow: "#22d3ee", portalColor: ["#22d3ee", "#0891b2"], desc: "مغارات ومناطق مشبعة بالطاقة" },
+  ELITE: { label: "D_بوابة", rank: "D~C", icon: "◆", gradient: "linear-gradient(135deg,#0e1f4a,#060d2a)", border: T.blue, glow: "#7c3aed", portalColor: ["#4600c7", "#ae00ff"], desc: "طاقة أعلى، وحوش متطورة" },
+  BOSS: { label: "A_بوابة", rank: "A", icon: "❖", gradient: "linear-gradient(135deg,#3a2a00,#1a1000)", border: T.gold, glow: "#fbbf24", portalColor: ["#fbbf24", "#d97706"], desc: "كائن واحد بقوة هائلة" },
+  DUNGEON: { label: "C_بوابة", rank: "C~B", icon: "⬡", gradient: "linear-gradient(135deg,#2a0a3a,#120018)", border: T.purple, glow: "#f75555", portalColor: ["#da0000", "#d93428"], desc: "أخطر بوابة — مكافأة عالية" },
+  DESTRUCTION_KING: { label: "B_بوابة", rank: "B~A", icon: "💀", gradient: "linear-gradient(135deg,#2a0005,#0a0002)", border: "#ff003c", glow: "#ff003c", portalColor: ["#ff003c", "#5a000c"], desc: "نهاية العالم" },
 };
 
 // ─── PORTAL SVG ───────────────────────────────────────────────────────────────
@@ -778,9 +779,20 @@ export function GatesPage({ state, onComplete, onDelete, onAdd, onPotion, onRest
     const loot = Math.random() < (d.dropChance || 0.5)
       ? rollLoot(1, d.weights || GATE_WEIGHTS)
       : null;
-    setVictoryData({ exp: d.exp, loot, playerHp, potions: newPotions });
+
+    // 👤⚡ فرصة استخراج جندي ظل — فقط من بوسات قوية (BOSS / DUNGEON / DESTRUCTION_KING)
+    let shadowExtracted = null;
+    const shadowCfg = SHADOW_EXTRACT[selectedGate];
+    if (shadowCfg && Math.random() < shadowCfg.chance) {
+      const existing = (state.shadowSoldiers || []).find((s) => s.name === monster);
+      shadowExtracted = existing
+        ? { name: monster, tier: selectedGate, level: existing.level, duplicate: true }
+        : { name: monster, tier: selectedGate, level: 1, duplicate: false };
+    }
+
+    setVictoryData({ exp: d.exp, loot, playerHp, potions: newPotions, shadowExtracted });
     setInBattle(false);
-  }, [selectedGate]);
+  }, [selectedGate, monster, state.shadowSoldiers]);
 
   const handleDefeat = useCallback(({ playerHp }) => {
     setDefeatData({ playerHp });

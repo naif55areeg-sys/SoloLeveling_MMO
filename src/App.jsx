@@ -1,23 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
 import { CSS, T } from "./constants/tokens";
 import { GATE_DIFFICULTY, DAILY_WEIGHTS, ITEM_POOL, TIERS, itemShapeType, UPGRADE_MAX_LEVEL, upgradeCost, rankFromLevel, RANK_SKILLS, ACHIEVEMENTS } from "./constants/gameData";
-import { rollLoot, rollDamage, rollMonsterDamage, maxPlayerHp, maxStaminaForLevel, effectiveStats, gainExp, todayStr, weekKey, checkNewAchievements } from "./constants/gameLogic";
+import { rollLoot, rollDamage, rollMonsterDamage, maxPlayerHp, maxStaminaForLevel, effectiveStats, gainExp, todayStr, weekKey, checkNewAchievements, commitShadowExtraction, trainDeployedShadows, toggleShadowDeploy as toggleShadowDeployState } from "./constants/gameLogic";
 import { LIMITS } from "./constants/gameData";
 import { useSystemState } from "./hooks/useSystemState";
 import { useAuth } from "./hooks/useAuth";
 
 import { AmbientParticles, SignatureMark } from "./components/UI";
 import { Preloader, Nav } from "./components/Preloader";
-import { LevelUpToast, LootRevealModal, AchievementToast } from "./components/Toasts";
+import { LevelUpToast, LootRevealModal, AchievementToast, ShadowAriseModal } from "./components/Toasts";
 
 import { HomePage } from "./pages/HomePage";
 import { QuestListPage } from "./pages/QuestListPage";
 import { StatsPage, RankPage, LootPage, StatusBar, AchievementsPage } from "./pages/OtherPages";
 import { GatesPage } from "./pages/GatesPage";
+import { ShadowArmyPage } from "./pages/ShadowArmyPage";
 import { LeaderboardPage, WorldBossPage, DiscordLoginBanner, BroadcastBanner, ChatPage } from "./pages/MMOPages";
 
-// الصفحات المتاحة — أضفنا MMO و BOSS
-const ALL_PAGES = ["HOME", "QUESTS", "STATS", "GATES", "RANK", "LOOT", "MMO", "BOSS", "CHAT"];
+// الصفحات المتاحة — أضفنا MMO و BOSS و SHADOW (جنود الظل)
+const ALL_PAGES = ["HOME", "QUESTS", "STATS", "GATES", "RANK", "LOOT", "SHADOW", "MMO", "BOSS", "CHAT"];
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -26,6 +27,7 @@ export default function App() {
   const { token, user, login, logout, syncPlayer, fetchLeaderboard, fetchBoss, attackBoss, challengePvP, spawnBoss, adminGetPlayer, adminUpdatePlayer, sendBroadcast, fetchBroadcast, fetchProfile, fetchMessages, sendMessage, deleteMessage, addReaction } = useAuth();
   const [levelUpInfo, setLevelUpInfo] = useState(null);
   const [lootInfo, setLootInfo] = useState(null);
+  const [shadowArise, setShadowArise] = useState(null); // 👤⚡ جندي ظل جديد للعرض الاحتفالي
   const [achievementQueue, setAchievementQueue] = useState([]); // إنجازات بانتظار العرض
   const [achievementToast, setAchievementToast] = useState(null); // الإنجاز المعروض حالياً
   const [showSig, setShowSig] = useState(false);
@@ -504,6 +506,7 @@ export default function App() {
         <div style={{ position: "relative", zIndex: 1 }}>
           <LevelUpToast info={levelUpInfo} onDone={() => setLevelUpInfo(null)} />
           <LootRevealModal info={lootInfo} onDone={() => setLootInfo(null)} />
+          <ShadowAriseModal info={shadowArise} onDone={() => setShadowArise(null)} />
           <AchievementToast info={achievementToast} onDone={() => setAchievementToast(null)} />
           <SignatureMark visible={showSig} />
           <BroadcastBanner fetchBroadcast={fetchBroadcast} />
@@ -533,7 +536,7 @@ export default function App() {
               state={state} onComplete={completeQuest} onDelete={deleteQuest}
               onAdd={addQuest} onPotion={usePotion} onRest={restPlayer} combatFlash={combatFlash}
               onUseSkill={useSkill}
-              onBattleEnd={({ playerHp, potions: newPotions, gate, monster, won, loot, exp: expGained, escaped }) => {
+              onBattleEnd={({ playerHp, potions: newPotions, gate, monster, won, loot, exp: expGained, escaped, shadowExtracted }) => {
                 update((prev) => {
                   let next = { ...prev, playerHp: playerHp ?? prev.playerHp };
                   if (newPotions !== undefined) next.potions = newPotions;
@@ -562,6 +565,9 @@ export default function App() {
                       if (loot.tier === "SSS") next.sssLootCount = (next.sssLootCount || 0) + 1;
                       setLootInfo(loot);
                     }
+                    // 👤⚡ استخراج جندي ظل (إن نجحت المحاولة) + تدريب الجنود المنشورين حالياً
+                    next = commitShadowExtraction(next, shadowExtracted);
+                    next = trainDeployedShadows(next);
                     // فحص الإنجازات
                     const newlyUnlocked = checkNewAchievements(next);
                     if (newlyUnlocked.length > 0) {
@@ -579,6 +585,7 @@ export default function App() {
                   }
                   return next;
                 });
+                if (won && shadowExtracted) setShadowArise(shadowExtracted);
               }}
             />
           )}
@@ -594,6 +601,9 @@ export default function App() {
           }} />}
           {page === "LOOT" && (
             <LootPage state={state} onEquip={equipItem} onUpgrade={upgradeItem} onCombine={combineItems} />
+          )}
+          {page === "SHADOW" && (
+            <ShadowArmyPage state={state} onToggleDeploy={(id) => update((prev) => toggleShadowDeployState(prev, id))} />
           )}
           {page === "MMO" && (
             <LeaderboardPage
