@@ -184,11 +184,19 @@ const MONSTERS = {
 };
 
 const GATE_VISUALS = {
+<<<<<<< HEAD
   NORMAL: { label: "E_بوابة", rank: "E~D", icon: "◈", gradient: "linear-gradient(135deg,#0e4a4a,#0a2a2a)", border: T.cyan, glow: "#22d3ee", portalColor: ["#22d3ee", "#0891b2"], desc: "مغارات ومناطق مشبعة بالطاقة" },
   ELITE: { label: "D_بوابة", rank: "D~C", icon: "◆", gradient: "linear-gradient(135deg,#0e1f4a,#060d2a)", border: T.blue, glow: "#7c3aed", portalColor: ["#4600c7", "#ae00ff"], desc: "طاقة أعلى، وحوش متطورة" },
   BOSS: { label: "A_بوابة", rank: "A", icon: "❖", gradient: "linear-gradient(135deg,#3a2a00,#1a1000)", border: T.gold, glow: "#fbbf24", portalColor: ["#fbbf24", "#d97706"], desc: "كائن واحد بقوة هائلة" },
   DUNGEON: { label: "C_بوابة", rank: "C~B", icon: "⬡", gradient: "linear-gradient(135deg,#2a0a3a,#120018)", border: T.purple, glow: "#f75555", portalColor: ["#da0000", "#d93428"], desc: "أخطر بوابة — مكافأة عالية" },
   DESTRUCTION_KING: { label: "B_بوابة", rank: "B~A", icon: "💀", gradient: "linear-gradient(135deg,#2a0005,#0a0002)", border: "#ff003c", glow: "#ff003c", portalColor: ["#ff003c", "#5a000c"], desc: "نهاية العالم" },
+=======
+  NORMAL: { label: "E", rank: "E~D", icon: "◈", gradient: "linear-gradient(135deg,#0e4a4a,#0a2a2a)", border: T.cyan, glow: "#22d3ee", portalColor: ["#22d3ee", "#0891b2"], desc: "مغارات ومناطق مشبعة بالطاقة" },
+  ELITE: { label: "D", rank: "D~C", icon: "◆", gradient: "linear-gradient(135deg,#0e1f4a,#060d2a)", border: T.blue, glow: "#7c3aed", portalColor: ["#4600c7", "#ae00ff"], desc: "طاقة أعلى، وحوش متطورة" },
+  BOSS: { label: "A", rank: "A", icon: "❖", gradient: "linear-gradient(135deg,#3a2a00,#1a1000)", border: T.gold, glow: "#fbbf24", portalColor: ["#fbbf24", "#d97706"], desc: "كائن واحد بقوة هائلة" },
+  DUNGEON: { label: "C", rank: "C~B", icon: "⬡", gradient: "linear-gradient(135deg,#2a0a3a,#120018)", border: T.purple, glow: "#f75555", portalColor: ["#da0000", "#d93428"], desc: "أخطر بوابة — مكافأة عالية" },
+  DESTRUCTION_KING: { label: "B", rank: "B~A", icon: "💀", gradient: "linear-gradient(135deg,#2a0005,#0a0002)", border: "#ff003c", glow: "#ff003c", portalColor: ["#ff003c", "#5a000c"], desc: "نهاية العالم" },
+>>>>>>> 5ec62070400393652b4be0647c010915a485254d
 };
 
 // ─── PORTAL SVG ───────────────────────────────────────────────────────────────
