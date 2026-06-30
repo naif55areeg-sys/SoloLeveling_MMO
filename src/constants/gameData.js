@@ -124,6 +124,7 @@ export const GATE_WEIGHTS = { E: 8, D: 14, C: 18, B: 20, A: 18, S: 13, SS: 6, SS
 
 // ─── GATE DIFFICULTY ──────────────────────────────────────────────────────────
 export const GATE_DIFFICULTY = {
+  // ── النظام القديم (مهام البوابات) ──
   NORMAL: { label: "NORMAL", color: T.cyan, hp: 100, exp: 120, stamina: 30, monsterDmg: [3, 8], dropChance: 0.50, weights: { E: 8, D: 14, C: 18, B: 20, A: 18, S: 13, SS: 6, SSS: 3 } },
   ELITE: { label: "ELITE", color: T.blue, hp: 220, exp: 220, stamina: 45, monsterDmg: [5, 12], dropChance: 0.62, weights: { E: 4, D: 9, C: 14, B: 18, A: 20, S: 18, SS: 11, SSS: 6 } },
   BOSS: { label: "BOSS", color: T.gold, hp: 400000, exp: 4000, stamina: 65, monsterDmg: [80, 90], dropChance: 0.75, weights: { E: 1, D: 4, C: 8, B: 14, A: 18, S: 22, SS: 20, SSS: 13 } },
@@ -138,6 +139,14 @@ export const GATE_DIFFICULTY = {
     dropChance: 0.99,
     weights: { E: 0, D: 0, C: 0, B: 0, A: 0, S: 0, SS: 10, SSS: 90 }
   },
+  // ── النظام الجديد (بوابات الرانك من GatesPage) ──
+  E_RANK: { label: "بوابة E", color: "#4ade80", hp: 100, exp: 100, stamina: 25, monsterDmg: [2, 6],    dropChance: 0.40, weights: { E: 30, D: 25, C: 18, B: 12, A: 8,   S: 4,  SS: 2,    SSS: 1   } },
+  D_RANK: { label: "بوابة D", color: "#38bdf8", hp: 200, exp: 200, stamina: 35, monsterDmg: [4, 10],   dropChance: 0.50, weights: { E: 15, D: 22, C: 22, B: 18, A: 12,  S: 7,  SS: 3,    SSS: 1   } },
+  C_RANK: { label: "بوابة C", color: "#facc15", hp: 400, exp: 450, stamina: 45, monsterDmg: [7, 15],   dropChance: 0.60, weights: { E: 6,  D: 12, C: 20, B: 22, A: 18,  S: 12, SS: 7,    SSS: 3   } },
+  B_RANK: { label: "بوابة B", color: "#f97316", hp: 800, exp: 1200, stamina: 55, monsterDmg: [15, 28],  dropChance: 0.70, weights: { E: 2,  D: 5,  C: 12, B: 20, A: 24,  S: 20, SS: 12,   SSS: 5   } },
+  A_RANK: { label: "بوابة A", color: "#a855f7", hp: 1800, exp: 4000, stamina: 65, monsterDmg: [30, 55], dropChance: 0.80, weights: { E: 0.5,D: 2,  C: 5,  B: 12, A: 22,  S: 28, SS: 20,   SSS: 10.5} },
+  S_RANK: { label: "بوابة S", color: "#7c3aed", hp: 5000, exp: 15000, stamina: 75, monsterDmg: [70, 120],dropChance: 0.90, weights: { E: 0,  D: 0.5,C: 2,  B: 6,  A: 15,  S: 28, SS: 30,   SSS: 18.5} },
+  RED_GATE: { label: "البوابة الحمراء", color: "#ff003c", hp: 15000, exp: 80000, stamina: 90, monsterDmg: [200, 380], dropChance: 0.99, weights: { E: 0, D: 0, C: 0, B: 0.5, A: 3, S: 12, SS: 35, SSS: 49.5 } },
 };
 
 // ─── SHADOW SOLDIERS ──────────────────────────────────────────────────────────

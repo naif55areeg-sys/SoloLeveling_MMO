@@ -850,7 +850,7 @@ export default function App() {
                       <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#fbbf24", marginBottom: 4 }}>💎 كرستال التطوير</div>
                       <div style={{ fontFamily: "monospace", fontSize: 9, color: "#6b7280", marginBottom: 10, lineHeight: 1.5 }}>
                         تُستخدم لتحويل الجنود الخاصين (إيغريس، بيرو، بيليون) إلى ما بعد LV.10 — حتى LV.20
-                        <br/>لديك الآن: <span style={{ color: "#fbbf24", fontWeight: 700 }}>{state.crystals || 0} 💎</span>
+                        <br />لديك الآن: <span style={{ color: "#fbbf24", fontWeight: 700 }}>{state.crystals || 0} 💎</span>
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
                         {[1, 3, 5].map((n) => (
