@@ -282,7 +282,7 @@ router.get("/pvp/history", requireAuth, async (req, res) => {
 
 
 // ─── BROADCAST ────────────────────────────────────────────────────────────────
-let activeBroadcast = null;
+// activeBroadcast مُعرَّف أعلاه كـ export let
 
 router.get("/broadcast", (req, res) => {
   if (!activeBroadcast) return res.json(null);
@@ -306,7 +306,7 @@ router.post("/broadcast", requireAuth, async (req, res) => {
     if (type === "takeover") {
       try {
         const parsed = JSON.parse(message);
-        videoUrl    = parsed.videoUrl    || message;
+        videoUrl = parsed.videoUrl || message;
         overlayText = parsed.overlayText || "";
         parsedMessage = videoUrl;
       } catch {
@@ -315,14 +315,14 @@ router.post("/broadcast", requireAuth, async (req, res) => {
     }
 
     activeBroadcast = {
-      message:    parsedMessage,
+      message: parsedMessage,
       videoUrl,
       overlayText,
       type,
-      sender:     req.user.username,
-      sentAt:     now,
+      sender: req.user.username,
+      sentAt: now,
       updated_at: now,
-      expiresAt:  now + duration * 60 * 1000,
+      expiresAt: now + duration * 60 * 1000,
     };
     res.json({ ok: true, broadcast: activeBroadcast });
   } catch (e) {
@@ -343,14 +343,14 @@ router.get("/admin/player/:discord_id", requireAuth, async (req, res) => {
     const parse = (v, fb) => { try { return typeof v === "string" ? JSON.parse(v) : v ?? fb; } catch { return fb; } };
     res.json({
       discord_id: player.discord_id,
-      username:   player.username,
-      avatar:     player.avatar,
-      level:      player.level,
-      exp:        player.exp,
-      power:      player.power,
+      username: player.username,
+      avatar: player.avatar,
+      level: player.level,
+      exp: player.exp,
+      power: player.power,
       str: player.str, agi: player.agi, vit: player.vit,
       intl: player.intl, sense: player.sense,
-      equipped:  parse(player.equipped, {}),
+      equipped: parse(player.equipped, {}),
       inventory: parse(player.inventory, []),
     });
   } catch (e) {
@@ -374,14 +374,14 @@ router.post("/admin/edit-player", requireAuth, async (req, res) => {
     const power = await upsertPlayer({
       discord_id,
       username: player.username,
-      avatar:   player.avatar,
-      level:    level  ?? player.level,
-      exp:      exp    ?? player.exp,
-      str:      str    ?? player.str,
-      agi:      agi    ?? player.agi,
-      vit:      vit    ?? player.vit,
-      intl:     intl   ?? player.intl,
-      sense:    sense  ?? player.sense,
+      avatar: player.avatar,
+      level: level ?? player.level,
+      exp: exp ?? player.exp,
+      str: str ?? player.str,
+      agi: agi ?? player.agi,
+      vit: vit ?? player.vit,
+      intl: intl ?? player.intl,
+      sense: sense ?? player.sense,
     });
 
     res.json({ ok: true, power, message: `تم تحديث ${player.username}` });
