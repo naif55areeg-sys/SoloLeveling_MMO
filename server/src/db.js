@@ -24,7 +24,7 @@ export async function getDb() {
           username TEXT NOT NULL,
           avatar TEXT,
           level INTEGER DEFAULT 1,
-          exp INTEGER DEFAULT 0,
+          exp BIGINT DEFAULT 0,
           str INTEGER DEFAULT 10,
           agi INTEGER DEFAULT 10,
           vit INTEGER DEFAULT 10,
@@ -49,6 +49,7 @@ export async function getDb() {
         ALTER TABLE players ADD COLUMN IF NOT EXISTS potions_used INTEGER DEFAULT 0;
         ALTER TABLE players ADD COLUMN IF NOT EXISTS equipped TEXT DEFAULT '{}';
         ALTER TABLE players ADD COLUMN IF NOT EXISTS inventory TEXT DEFAULT '[]';
+        ALTER TABLE players ALTER COLUMN exp TYPE BIGINT USING exp::bigint;
 
         CREATE TABLE IF NOT EXISTS world_boss (
           id SERIAL PRIMARY KEY,
@@ -70,9 +71,11 @@ export async function getDb() {
           boss_id INTEGER NOT NULL,
           discord_id TEXT NOT NULL,
           username TEXT NOT NULL,
-          damage INTEGER NOT NULL,
+          damage BIGINT NOT NULL,
           dealt_at BIGINT NOT NULL
         );
+
+        ALTER TABLE boss_damage_log ALTER COLUMN damage TYPE BIGINT USING damage::bigint;
 
         CREATE TABLE IF NOT EXISTS pvp_matches (
           id SERIAL PRIMARY KEY,
