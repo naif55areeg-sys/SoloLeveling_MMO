@@ -254,7 +254,7 @@ export function LootRevealModal({ info, onDone }) {
   const particles = useRef(
     Array.from({ length: 16 }, (_, i) => {
       const angle = (i / 16) * Math.PI * 2 + Math.random() * 0.3;
-      const dist  = 90 + Math.random() * 70;
+      const dist = 90 + Math.random() * 70;
       return { x: Math.cos(angle) * dist, y: Math.sin(angle) * dist, delay: Math.random() * 0.12, size: 3 + Math.random() * 4 };
     })
   ).current;

@@ -1,4 +1,4 @@
-import { TIERS, ITEM_POOL, GATE_DIFFICULTY, SLOT_STAT, tierBonusValue, ACHIEVEMENTS, SHADOW_MAX_DEPLOYED, SHADOW_EXP_PER_BATTLE, SHADOW_DUPLICATE_EXP, shadowExpToNext, shadowStatsBuff } from "./gameData";
+import { TIERS, ITEM_POOL, GATE_DIFFICULTY, SLOT_STAT, tierBonusValue, ACHIEVEMENTS, SHADOW_MAX_DEPLOYED, SHADOW_EXP_PER_BATTLE, SHADOW_DUPLICATE_EXP, SHADOW_MAX_LEVEL, SHADOW_SPECIAL_MAX_LEVEL, SHADOW_SPECIAL_NAMES, SHADOW_POOLS, SHADOW_CRYSTAL_CHANCE, shadowExpToNext, shadowStatsBuff } from "./gameData";
 
 // ─── SYNC TO SERVER (Backend Connection) ──────────────────────────────────────
 export async function syncToServer(state, user) {
@@ -139,18 +139,32 @@ export function effectiveStats(state) {
 }
 
 // ─── SHADOW SOLDIER HELPERS ───────────────────────────────────────────────────
-// يرفع خبرة جندي ظل واحد ويتعامل مع اللفل أب (يرجع نسخة جديدة من الجندي)
+// يختار إحصائيتين عشوائيتين من الخمسة لجندي ظل عادي (يُحدد مرة واحدة عند الاستخراج)
+function randomTwoStats() {
+  const ALL = ["STR", "AGI", "VIT", "INT", "SENSE"];
+  const shuffled = ALL.slice().sort(() => Math.random() - 0.5);
+  return [shuffled[0], shuffled[1]];
+}
+
+// يرفع خبرة جندي ظل واحد ويتعامل مع اللفل أب — مع الحد الأقصى للمستوى
 export function gainShadowExp(soldier, amount) {
+  // مطابقة جزئية عشان تشمل كل صيغ الاسم (من الأدمن أو من البول)
+  const n = soldier.name || "";
+  const isSpecial = SHADOW_SPECIAL_NAMES.includes(n) ||
+    n.includes("إيغريس") || n.includes("بيرو") || n.includes("بيليون");
+  const maxLevel = (isSpecial && soldier.crystallized) ? SHADOW_SPECIAL_MAX_LEVEL : SHADOW_MAX_LEVEL;
   let { level = 1, exp = 0 } = soldier;
+  if (level >= maxLevel) return { ...soldier, _leveledUp: 0 };
   exp += amount;
   let expToNext = shadowExpToNext(level);
   let leveledUp = 0;
-  while (exp >= expToNext) {
+  while (exp >= expToNext && level < maxLevel) {
     exp -= expToNext;
     level += 1;
     expToNext = shadowExpToNext(level);
     leveledUp += 1;
   }
+  if (level >= maxLevel) exp = 0;
   return { ...soldier, level, exp, _leveledUp: leveledUp };
 }
 
@@ -166,19 +180,54 @@ export function trainDeployedShadows(state) {
   return { ...state, shadowSoldiers: updated };
 }
 
+// ─── SHADOW POOL EXTRACTION ───────────────────────────────────────────────────
+// يرمي roll واحد (0→1) ويتراكم على الـ cumulative chance لكل جندي في البول
+// أول جندي تتجاوز cumulative فيه رقم الـ roll ينزل — إذا ما تجاوز أحد، لا ينزل شيء
+export function rollShadowFromPool(gateKey) {
+  const pool = SHADOW_POOLS[gateKey];
+  if (!pool || !pool.length) return null;
+  const roll = Math.random();
+  let cumulative = 0;
+  for (const entry of pool) {
+    cumulative += entry.chance;
+    if (roll < cumulative) {
+      return { name: entry.name, tier: gateKey };
+    }
+  }
+  return null;
+}
+
+// كرستال التطوير — ينزل من S Rank فقط بنسبة 5% (roll منفصل تماماً عن roll الجندي)
+export function rollCrystalDrop(gateKey) {
+  if (gateKey !== "S_RANK") return false;
+  return Math.random() < SHADOW_CRYSTAL_CHANCE;
+}
+
 // يستقبل state ومعلومات استخراج تم تقرير نجاحها مسبقاً (الاحتمال يُحسب مرة واحدة
-// بصفحة البوابات) — يدمجها بالـ state: جندي جديد أو خبرة إضافية لجندي موجود بنفس الاسم
+// بصفحة البوابات) — يدمجها بالـ state: جندي جديد أو تعويض ذهب لجندي موجود بنفس الاسم
 export function commitShadowExtraction(state, extracted) {
   if (!extracted) return state;
   const soldiers = state.shadowSoldiers || [];
   const existing = soldiers.find((s) => s.name === extracted.name);
 
   if (existing) {
-    const updated = soldiers.map((s) => s.id === existing.id ? gainShadowExp(s, SHADOW_DUPLICATE_EXP) : s);
-    return { ...state, shadowSoldiers: updated };
+    // مكرر — تعويض ذهب بدلاً من XP: 300 للجنود الخاصة، 150 للعاديين
+    const compGold = SHADOW_SPECIAL_NAMES.includes(extracted.name || "") ? 300 : 150;
+    return { ...state, gold: (state.gold || 0) + compGold };
   }
 
-  const soldier = { id: `shadow_${Date.now()}`, name: extracted.name, tier: extracted.tier, level: 1, exp: 0, uses: 0, extractedAt: Date.now() };
+  const isNewSpecial = SHADOW_SPECIAL_NAMES.includes(extracted.name || "");
+  const buffStats = isNewSpecial ? null : randomTwoStats();
+  const soldier = {
+    id: `shadow_${Date.now()}`,
+    name: extracted.name,
+    tier: extracted.tier,
+    level: 1,
+    exp: 0,
+    uses: 0,
+    extractedAt: Date.now(),
+    ...(buffStats ? { buffStats } : {}),
+  };
   return { ...state, shadowSoldiers: [...soldiers, soldier] };
 }
 
@@ -219,8 +268,8 @@ export function gainExp(state, amount) {
 export function checkNewAchievements(state) {
   const unlocked = state.unlockedAchievements || [];
   const gs = state.gateStats || {};
-  const weakCount = (gs.NORMAL || 0) + (gs.ELITE || 0);
-  const strongCount = (gs.BOSS || 0) + (gs.DUNGEON || 0) + (gs.DESTRUCTION_KING || 0);
+  const weakCount = (gs.NORMAL || 0) + (gs.ELITE || 0) + (gs.E_RANK || 0) + (gs.D_RANK || 0) + (gs.C_RANK || 0);
+  const strongCount = (gs.BOSS || 0) + (gs.DUNGEON || 0) + (gs.DESTRUCTION_KING || 0) + (gs.B_RANK || 0) + (gs.A_RANK || 0) + (gs.S_RANK || 0) + (gs.RED_GATE || 0);
 
   const progressByCategory = {
     weak: weakCount,
@@ -243,8 +292,8 @@ export function checkNewAchievements(state) {
 export function getAchievementProgress(state, achievement) {
   const gs = state.gateStats || {};
   const map = {
-    weak: (gs.NORMAL || 0) + (gs.ELITE || 0),
-    strong: (gs.BOSS || 0) + (gs.DUNGEON || 0) + (gs.DESTRUCTION_KING || 0),
+    weak: (gs.NORMAL || 0) + (gs.ELITE || 0) + (gs.E_RANK || 0) + (gs.D_RANK || 0) + (gs.C_RANK || 0),
+    strong: (gs.BOSS || 0) + (gs.DUNGEON || 0) + (gs.DESTRUCTION_KING || 0) + (gs.B_RANK || 0) + (gs.A_RANK || 0) + (gs.S_RANK || 0) + (gs.RED_GATE || 0),
     level: state.level || 1,
     lootSSS: state.sssLootCount || 0,
     potionsUsed: state.potionsUsedCount || 0,
@@ -270,7 +319,7 @@ export function defaultState() {
     exp: 0,
     expToNext: 100,
     statPoints: 0,
-    stats: { STR: 10000, AGI: 10, VIT: 10, INT: 10, SENSE: 10 },
+    stats: { STR: 10, AGI: 10, VIT: 10, INT: 10, SENSE: 10 },
     inventory: [],
     equipped: {},
     shadowSoldiers: [],     // جنود الظل المُستخرجين من البوسات
@@ -283,7 +332,7 @@ export function defaultState() {
     playerHp: maxPlayerHp({ VIT: 10 }), // 350 = 300 + 10*5
     potions: 9,
     // ── عدادات الإنجازات ──
-    gateStats: { NORMAL: 0, ELITE: 0, BOSS: 0, DUNGEON: 0, DESTRUCTION_KING: 0 },
+    gateStats: { NORMAL: 0, ELITE: 0, BOSS: 0, DUNGEON: 0, DESTRUCTION_KING: 0, E_RANK: 0, D_RANK: 0, C_RANK: 0, B_RANK: 0, A_RANK: 0, S_RANK: 0, RED_GATE: 0 },
     sssLootCount: 0,
     potionsUsedCount: 0,
     unlockedAchievements: [],

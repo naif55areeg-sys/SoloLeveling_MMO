@@ -62,6 +62,9 @@ export async function getDb() {
           is_dead INTEGER DEFAULT 0
         );
 
+        ALTER TABLE world_boss ADD COLUMN IF NOT EXISTS is_dead INTEGER DEFAULT 0;
+        ALTER TABLE world_boss ADD COLUMN IF NOT EXISTS starts_at BIGINT DEFAULT 0;
+
         CREATE TABLE IF NOT EXISTS boss_damage_log (
           id SERIAL PRIMARY KEY,
           boss_id INTEGER NOT NULL,
@@ -165,25 +168,85 @@ export async function getLeaderboard(limit = 50) {
 }
 
 // ─── WORLD BOSS ──────────────────────────────────────────────────────────────
+
+// منتصف الليل بتوقيت السعودية = 21:00 UTC
+function nextSaudiMidnightAfter(ts) {
+  const d = new Date(ts);
+  let midnight = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 21, 0, 0, 0);
+  if (midnight <= ts) midnight += 24 * 60 * 60 * 1000;
+  return midnight;
+}
+
 export async function getActiveBoss() {
   const db = await getDb();
   const now = Date.now();
-  const res = await db.query(
-    "SELECT * FROM world_boss WHERE starts_at <= $1 AND ends_at >= $2 AND is_dead = 0 ORDER BY id DESC LIMIT 1",
-    [now, now]
+  // بوس نشط حالياً
+  const active = await db.query(
+    `SELECT *, 'active' as status FROM world_boss WHERE starts_at <= $1 AND ends_at >= $1 AND is_dead = 0 ORDER BY id DESC LIMIT 1`,
+    [now]
   );
-  return res.rows[0] || null;
+  if (active.rows.length > 0) return active.rows[0];
+  // بوس قادم (انتظار ريسبون)
+  const pending = await db.query(
+    `SELECT *, 'respawning' as status FROM world_boss WHERE starts_at > $1 ORDER BY starts_at ASC LIMIT 1`,
+    [now]
+  );
+  return pending.rows[0] || null;
 }
 
-export async function spawnBoss({ name, max_hp, reward_exp, reward_desc, duration_hours = 24 }) {
+export async function spawnBoss({ name, max_hp, reward_exp, reward_desc, starts_at = null }) {
   const db = await getDb();
-  const now = Date.now();
-  const ends_at = now + duration_hours * 60 * 60 * 1000;
+  const startsAt = starts_at || Date.now();
+  const endsAt = nextSaudiMidnightAfter(startsAt);
   const res = await db.query(
     `INSERT INTO world_boss (name, max_hp, current_hp, reward_exp, reward_desc, starts_at, ends_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-    [name, max_hp, max_hp, reward_exp, reward_desc || '', now, ends_at]
+    [name, max_hp, max_hp, reward_exp, reward_desc || '', startsAt, endsAt]
   );
   return res.rows[0].id;
+}
+
+// توزيع مكافآت أول 3 عند موت البوس
+export async function distributeBossRewards(boss_id) {
+  const db = await getDb();
+  const res = await db.query(
+    `SELECT discord_id, username, SUM(damage)::bigint as total_damage
+     FROM boss_damage_log WHERE boss_id = $1
+     GROUP BY discord_id, username ORDER BY total_damage DESC LIMIT 3`,
+    [boss_id]
+  );
+  const REWARDS = [5000000, 2000000, 800000];
+  const result = [];
+  for (let i = 0; i < res.rows.length; i++) {
+    const { discord_id, username, total_damage } = res.rows[i];
+    const exp = REWARDS[i];
+    await db.query(`UPDATE players SET exp = exp + $1 WHERE discord_id = $2`, [exp, discord_id]);
+    result.push({ rank: i + 1, discord_id, username, total_damage: Number(total_damage), exp_reward: exp });
+  }
+  return result;
+}
+
+// إجمالي ضرر اللاعب على البوس اليوم (بتوقيت السعودية)
+export async function getDailyBossDamage(boss_id, discord_id) {
+  const db = await getDb();
+  const now = Date.now();
+  // يوم السعودية يبدأ 21:00 UTC
+  const today21utc = (() => {
+    const d = new Date(now);
+    const t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 21, 0, 0, 0);
+    return t > now ? t - 86400000 : t;
+  })();
+  const res = await db.query(
+    `SELECT COALESCE(SUM(damage), 0)::bigint as total FROM boss_damage_log
+     WHERE boss_id = $1 AND discord_id = $2 AND dealt_at >= $3`,
+    [boss_id, discord_id, today21utc]
+  );
+  return Number(res.rows[0]?.total || 0);
+}
+
+// إغلاق البوس بالقوة (ريست منتصف الليل)
+export async function forceKillBoss(boss_id) {
+  const db = await getDb();
+  await db.query(`UPDATE world_boss SET is_dead = 1 WHERE id = $1`, [boss_id]);
 }
 
 export async function damageBoss(boss_id, discord_id, username, damage) {

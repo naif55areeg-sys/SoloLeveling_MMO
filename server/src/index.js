@@ -2,7 +2,7 @@ import express from "express";
 import cors from 'cors';
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
-import playerRoutes from "./routes/player.js";
+import playerRoutes, { initBossScheduler } from "./routes/player.js";
 import adminRoutes from './routes/admin.js';
 import broadcastRouter from "./routes/broadcast.js";
 import chatRouter from "./routes/chat.js";
@@ -38,4 +38,6 @@ app.get("/health", (req, res) => res.json({ status: "ok", time: Date.now() }));
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 السيرفر يعمل على بورت ${PORT}`);
+  initBossScheduler();
+  console.log("⏰ مجدول البوس اليومي يعمل — يتحقق كل دقيقة");
 });

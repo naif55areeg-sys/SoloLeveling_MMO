@@ -7,10 +7,10 @@ export function HudCorners({ color = T.purple, size = 14 }) {
   const bv = `2px solid ${color}`;
   return (
     <>
-      <span style={{ ...s, top: 0, left: 0,    borderTop: bv,    borderLeft: bv   }} />
-      <span style={{ ...s, top: 0, right: 0,   borderTop: bv,    borderRight: bv  }} />
-      <span style={{ ...s, bottom: 0, left: 0, borderBottom: bv, borderLeft: bv   }} />
-      <span style={{ ...s, bottom: 0, right: 0,borderBottom: bv, borderRight: bv  }} />
+      <span style={{ ...s, top: 0, left: 0, borderTop: bv, borderLeft: bv }} />
+      <span style={{ ...s, top: 0, right: 0, borderTop: bv, borderRight: bv }} />
+      <span style={{ ...s, bottom: 0, left: 0, borderBottom: bv, borderLeft: bv }} />
+      <span style={{ ...s, bottom: 0, right: 0, borderBottom: bv, borderRight: bv }} />
     </>
   );
 }

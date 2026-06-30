@@ -7,7 +7,7 @@ import {
 } from "../constants/gameData";
 import { HudCorners, RankBadge, ExpBar } from "../components/UI";
 import { ItemIcon } from "../components/LootIcons";
-import { maxPlayerHp, effectiveStats, getEquipmentBonuses, itemBonusValue, todayStr, getAchievementProgress } from "../constants/gameLogic";
+import { maxPlayerHp, effectiveStats, getEquipmentBonuses, getShadowSoldierBonuses, itemBonusValue, todayStr, getAchievementProgress } from "../constants/gameLogic";
 
 const STAT_COLORS = { STR: "#ef4444", AGI: "#22d3ee", VIT: "#10b981", INT: "#a855f7", SENSE: "#fbbf24" };
 
@@ -56,6 +56,7 @@ export function StatusBar({ state }) {
 // ─── STATS PAGE ───────────────────────────────────────────────────────────────
 export function StatsPage({ state, onAllocate }) {
   const bonuses = getEquipmentBonuses(state);
+  const shadowBonuses = getShadowSoldierBonuses(state);
   const [animVals, setAnimVals] = useState({});
 
   useEffect(() => {
@@ -108,7 +109,7 @@ export function StatsPage({ state, onAllocate }) {
               </div>
 
               <div style={{ width: 64, textAlign: "center", fontFamily: "'Orbitron',monospace", fontSize: 18, fontWeight: 900, color, position: "relative" }}>
-                {dispVal}{bonus > 0 && <span style={{ color: T.gold, fontSize: 11, fontWeight: 700 }}> +{bonus}</span>}
+                {dispVal}{bonus > 0 && <span style={{ color: T.gold, fontSize: 11, fontWeight: 700 }}> +{bonus}</span>}{(shadowBonuses[k] || 0) > 0 && <span style={{ color: "#a855f7", fontSize: 11, fontWeight: 700 }}> +{shadowBonuses[k]}</span>}
               </div>
 
               <button onClick={() => onAllocate(k)} disabled={state.statPoints <= 0} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${state.statPoints > 0 ? color : T.border}`, background: state.statPoints > 0 ? `${color}20` : "transparent", color: state.statPoints > 0 ? color : T.muted, cursor: state.statPoints > 0 ? "pointer" : "default", fontWeight: 900, fontSize: 16, transition: "all 0.2s", position: "relative" }}>
@@ -120,9 +121,10 @@ export function StatsPage({ state, onAllocate }) {
         })}
       </div>
 
-      {Object.values(bonuses).some((v) => v > 0) && (
-        <div style={{ marginTop: 16, fontFamily: "monospace", fontSize: 11, color: T.muted, textAlign: "center" }}>
-          الأرقام الصفراء بونص من العناصر المجهّزة 🎽
+      {(Object.values(bonuses).some((v) => v > 0) || Object.values(shadowBonuses).some((v) => v > 0)) && (
+        <div style={{ marginTop: 16, fontFamily: "monospace", fontSize: 11, color: T.muted, textAlign: "center", display: "flex", flexDirection: "column", gap: 4 }}>
+          {Object.values(bonuses).some((v) => v > 0) && <span><span style={{ color: T.gold }}>+الصفراء</span> بونص من العناصر المجهّزة 🎽</span>}
+          {Object.values(shadowBonuses).some((v) => v > 0) && <span><span style={{ color: "#a855f7" }}>+البنفسجية</span> بونص من جنود الظل المنشورين 👤</span>}
         </div>
       )}
     </div>
@@ -470,6 +472,51 @@ function LootCard({ tier, name, qty, level, idx, keyId, isEquipped, onEquip, onU
   );
 }
 
+// ─── CRYSTAL CARD (consumable) ─────────────────────────────────
+function CrystalCard({ count }) {
+  return (
+    <div style={{
+      ...glass({ padding: "20px 18px" }),
+      position: "relative", overflow: "hidden",
+      border: "1px solid rgba(251,191,36,0.4)",
+      boxShadow: "0 0 30px rgba(251,191,36,0.12), 0 8px 24px rgba(0,0,0,0.4)",
+      display: "flex", alignItems: "center", gap: 18,
+      animation: "fadeUp 0.35s ease-out both",
+      marginBottom: 22,
+    }}>
+      <div style={{ position: "absolute", inset: -30, opacity: 0.07, pointerEvents: "none", background: "conic-gradient(from 0deg,#fbbf24,transparent,#fbbf24)", animation: "auraSpin 10s linear infinite" }} />
+      <HudCorners size={10} color={T.gold} />
+      <div style={{
+        flexShrink: 0, width: 64, height: 64, borderRadius: 14,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 36, background: "rgba(251,191,36,0.12)",
+        border: "1px solid rgba(251,191,36,0.4)",
+        filter: "drop-shadow(0 0 12px rgba(251,191,36,0.7))",
+        animation: "itemFloat 3s ease-in-out infinite",
+        position: "relative", zIndex: 1,
+      }}>💎</div>
+      <div style={{ flex: 1, position: "relative", zIndex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: "'Orbitron',monospace", fontWeight: 900, fontSize: 15, color: T.gold, textShadow: "0 0 12px rgba(251,191,36,0.6)" }}>كرستال التطوير</span>
+          <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, letterSpacing: 1, color: T.gold, background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 5, padding: "2px 8px" }}>CONSUMABLE</span>
+        </div>
+        <div style={{ fontFamily: "monospace", fontSize: 11, color: "#9ca3af", lineHeight: 1.7, marginBottom: 10 }}>
+          تُستخدم لكسر حاجز <span style={{ color: T.gold }}>LV.10</span> للجنود الخاصين — إيغريس و بيرو و بيليون.
+          بعد التطوير يصل الجندي حتى <span style={{ color: T.gold, fontWeight: 700 }}>LV.20</span>.
+          اضغط الزر الذهبي على بطاقة الجندي في صفحة جيش الظل.
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: "monospace", fontSize: 10, color: "#6b7280" }}>الكمية:</span>
+          <span style={{ fontFamily: "'Orbitron',monospace", fontSize: 22, fontWeight: 900, color: T.gold, textShadow: "0 0 12px rgba(251,191,36,0.7)" }}>×{count}</span>
+          <span style={{ fontFamily: "monospace", fontSize: 9, color: "#6b7280", background: "rgba(0,0,0,0.3)", borderRadius: 6, padding: "3px 9px", border: "1px solid #ffffff10", marginRight: "auto" }}>
+            ★ جند خاص LV.10 → اضغط الزر الذهبي ببطاقته
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EquipSlots({ state }) {
   const equipped = state.equipped || {};
   const inv = state.inventory || [];
@@ -530,6 +577,9 @@ export function LootPage({ state, onEquip, onUpgrade, onCombine }) {
       </div>
 
       <EquipSlots state={state} />
+
+      {/* كرستال التطوير */}
+      {(state.crystals || 0) > 0 && <CrystalCard count={state.crystals} />}
 
       {/* tier filter */}
       {inv.length > 0 && (

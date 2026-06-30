@@ -2,13 +2,26 @@ import express from "express";
 import {
   upsertPlayer, getLeaderboard, getPlayer,
   getActiveBoss, spawnBoss, damageBoss, getBossDamageRanking,
-  fightPvP, getPvPHistory, calcPower, getBossAttacksToday
+  distributeBossRewards, getDailyBossDamage, forceKillBoss,
+  fightPvP, getPvPHistory, calcPower, getBossAttacksToday,
+  getDb
 } from "../db.js";
 import { requireAuth } from "./auth.js";
 
 const router = express.Router();
 
-const BOSS_MAX_ATTACKS_PER_DAY = 70;
+const BOSS_MAX_ATTACKS_PER_DAY = 10;
+
+const BOSS_NAMES = [
+  "ملك الظلام المستيقظ",
+  "أمير الهاوية الأبدي",
+  "حارس الزنزانة المزدوجة",
+  "سيد الأعماق المحظورة",
+];
+
+const BOSS_MAX_HP = 10_000_000;
+
+let activeBossScheduled = false;
 
 // ─── LEADERBOARD ──────────────────────────────────────────────────────────────
 router.get("/leaderboard", async (req, res) => {
@@ -137,14 +150,37 @@ router.post("/boss/attack", requireAuth, async (req, res) => {
       });
     }
 
-    const damage = Math.floor((str || 10) * 2.5 + (level || 1) * 1.5 + Math.random() * 20);
+    // ── معادلة الضرر الجديدة مع كريت 15% ──
+    const base = (str || 10) * 8 + (level || 1) * 5;
+    const variance = 0.85 + Math.random() * 0.3;
+    const isCrit = Math.random() < 0.15;
+    const damage = Math.floor(base * variance * (isCrit ? 2.5 : 1));
+
     const result = await damageBoss(boss.id, req.user.discord_id, req.user.username, damage);
 
+    // ── موت البوس → توزيع مكافآت + ريسبون بعد ساعة ──
+    let rewards = [];
+    let respawn_at = null;
+    if (result?.is_dead) {
+      rewards = await distributeBossRewards(boss.id);
+      respawn_at = Date.now() + 60 * 60 * 1000; // ساعة واحد
+      const respawnName = BOSS_NAMES[Math.floor(Math.random() * BOSS_NAMES.length)];
+      setTimeout(async () => {
+        try {
+          await spawnBoss({ name: respawnName, max_hp: BOSS_MAX_HP, reward_exp: 5000000, starts_at: respawn_at });
+        } catch (e) { console.error('Boss respawn error:', e); }
+      }, 100);
+    }
+
+    // إجمالي ضرر اليوم (للإنجاز)
+    const daily_damage = await getDailyBossDamage(boss.id, req.user.discord_id);
+
     res.json({
-      ok: true, damage,
+      ok: true, damage, is_crit: isCrit,
       attacks_today: attacksToday + 1,
       max_attacks: BOSS_MAX_ATTACKS_PER_DAY,
       attacks_remaining: BOSS_MAX_ATTACKS_PER_DAY - (attacksToday + 1),
+      rewards, respawn_at, daily_damage,
       ...result,
     });
   } catch (e) {
@@ -154,19 +190,71 @@ router.post("/boss/attack", requireAuth, async (req, res) => {
 
 router.post("/boss/spawn", requireAuth, async (req, res) => {
   try {
-    const { name, max_hp, reward_exp, reward_desc, duration_hours } = req.body;
+    const { name, max_hp, reward_exp, reward_desc, starts_at } = req.body;
     const id = await spawnBoss({
       name: name || "وحش الظلام",
-      max_hp: max_hp || 50000,
-      reward_exp: reward_exp || 10000,
+      max_hp: max_hp || BOSS_MAX_HP,
+      reward_exp: reward_exp || 5000000,
       reward_desc,
-      duration_hours,
+      starts_at: starts_at || null,
     });
     res.json({ ok: true, boss_id: id });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ─── BOSS SCHEDULER ──────────────────────────────────────────────────────────────
+export let activeBroadcast = null;
+
+export function initBossScheduler() {
+  if (activeBossScheduled) return;
+  activeBossScheduled = true;
+
+  const SAUDI_OFFSET = 3 * 60 * 60 * 1000;
+  let lastWarnDay = -1;
+  let lastResetDay = -1;
+
+  setInterval(async () => {
+    const now = new Date();
+    const saudiNow = new Date(now.getTime() + SAUDI_OFFSET);
+    const sH = saudiNow.getUTCHours();
+    const sM = saudiNow.getUTCMinutes();
+    const sDay = saudiNow.getUTCDate();
+
+    // تحذير 11:30م سعودي → قبل نصف ساعة من الريست
+    if (sH === 23 && sM === 30 && sDay !== lastWarnDay) {
+      lastWarnDay = sDay;
+      activeBroadcast = {
+        message: "⚠️ تحذير! ستُغلق بوابة الزنزانة المزدوجة و يتجدد البوس في خلال 30 دقيقة!",
+        type: "warning",
+        sender: "النظام",
+        sentAt: Date.now(),
+        updated_at: Date.now(),
+        expiresAt: Date.now() + 35 * 60 * 1000,
+      };
+      console.log('⚠️  تحذير البوس أرسل لكل اللاعبين');
+    }
+
+    // ريست 12:00 صباحاً سعودي
+    if (sH === 0 && sM === 0 && sDay !== lastResetDay) {
+      lastResetDay = sDay;
+      try {
+        const boss = await getActiveBoss();
+        if (boss && boss.status === 'active') {
+          await forceKillBoss(boss.id);
+          console.log('🔄 ريست البوس منتصف الليل');
+        }
+        const name = BOSS_NAMES[sDay % BOSS_NAMES.length];
+        const startsAt = Date.now() + 60 * 60 * 1000; // ساعة بعد الريست
+        await spawnBoss({ name, max_hp: BOSS_MAX_HP, reward_exp: 5000000, starts_at: startsAt });
+        console.log(`✅ بوس جديد جدول: ${name}`);
+      } catch (e) {
+        console.error('خطأ ريست البوس:', e);
+      }
+    }
+  }, 60000); // فحص كل دقيقة
+}
 
 // ─── PVP ──────────────────────────────────────────────────────────────────────
 router.post("/pvp/challenge", requireAuth, async (req, res) => {

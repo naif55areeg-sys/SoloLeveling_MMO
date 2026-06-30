@@ -68,6 +68,8 @@ export const ACHIEVEMENTS = [
   { id: "level_100", title: "حاكم الظل", desc: "وصلت للفل 100", icon: "👑", category: "level", target: 100, tier: "legendary" },
   { id: "loot_sss_1", title: "اللمسة الذهبية", desc: "احصل على عنصر SSS لأول مرة", icon: "💎", category: "lootSSS", target: 1, tier: "legendary" },
   { id: "potions_50", title: "الصيدلاني الماهر", desc: "استخدم 50 جرعة شفاء", icon: "🧪", category: "potionsUsed", target: 50, tier: "silver" },
+  // ── بوس العالم ──
+  { id: "boss_1m_daily", title: "جلاد الزنزانة المزدوجة", desc: "أوصل إجمالي ضررك على بوس العالم لمليون نقطة في يوم واحد — يُعاد كل دورة بوس", icon: "⚔️", category: "bossDaily", target: 1000000, tier: "legendary" },
 ];
 
 export function rankFromLevel(level) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { CSS, T } from "./constants/tokens";
-import { GATE_DIFFICULTY, DAILY_WEIGHTS, ITEM_POOL, TIERS, itemShapeType, UPGRADE_MAX_LEVEL, upgradeCost, rankFromLevel, RANK_SKILLS, ACHIEVEMENTS } from "./constants/gameData";
+import { GATE_DIFFICULTY, DAILY_WEIGHTS, ITEM_POOL, TIERS, itemShapeType, UPGRADE_MAX_LEVEL, upgradeCost, rankFromLevel, RANK_SKILLS, ACHIEVEMENTS, SHADOW_SPECIAL_NAMES } from "./constants/gameData";
 import { rollLoot, rollDamage, rollMonsterDamage, maxPlayerHp, maxStaminaForLevel, effectiveStats, gainExp, todayStr, weekKey, checkNewAchievements, commitShadowExtraction, trainDeployedShadows, toggleShadowDeploy as toggleShadowDeployState } from "./constants/gameLogic";
 import { LIMITS } from "./constants/gameData";
 import { useSystemState } from "./hooks/useSystemState";
@@ -40,6 +40,7 @@ export default function App() {
   const [bossSaving, setBossSaving] = useState(false);
   const [broadcastForm, setBroadcastForm] = useState({ message: "", type: "info" });
   const [broadcastSending, setBroadcastSending] = useState(false);
+  const [adminShadowLevel, setAdminShadowLevel] = useState(1);
   const [takeoverVideoUrl, setTakeoverVideoUrl] = useState("");
   const [takeoverMsg, setTakeoverMsg] = useState("");
   const [takeoverOverlayText, setTakeoverOverlayText] = useState("");
@@ -140,6 +141,75 @@ export default function App() {
       return { ...prev, inventory };
     });
   };
+
+  // ── أعطني كل جنود الظل (الأنمي) ──
+  const adminGiveAllShadows = () => {
+    update((prev) => {
+      const existing = prev.shadowSoldiers || [];
+      const namedSoldiers = [
+        // 👶 جنود عاديون (E-D Rank) — دعم وعدد
+        { name: "مشاة الظل", tier: "E_RANK", level: adminShadowLevel },
+        { name: "ذئاب ظل ضعيفة", tier: "D_RANK", level: adminShadowLevel },
+        { name: "حشرات ظل", tier: "E_RANK", level: adminShadowLevel },
+        // 🐻 تانك — الدب الدفاعي (B-C Rank)
+        { name: "تانك — الفولاذي", tier: "S_RANK", level: adminShadowLevel },
+        // 🧙 تاسك — ساحر الظل (B-C Rank)
+        { name: "تاسك — ساحر الظل ", tier: "S_RANK", level: adminShadowLevel },
+        // ⚔️ إيغريس — فارس النخبة (A-S Rank)
+        { name: "إيغريس — فارس النخبة ", tier: "S_RANK", level: adminShadowLevel },
+        // 🐜 بيرو — ملك النمل (S Rank / Red Gate)
+        { name: "بيرو — ملك النمل", tier: "RED_GATE", level: adminShadowLevel },
+        // 👑 بيليون — قائد جيش الظل الأعظم
+        { name: "👑بيليون — قائد جيش الظل", tier: "RED_GATE", level: adminShadowLevel },
+      ];
+      const now = Date.now();
+      const toAdd = namedSoldiers
+        .filter((s) => !existing.find((e) => e.name === s.name))
+        .map((s, i) => {
+          const isSp = SHADOW_SPECIAL_NAMES.includes(s.name);
+          const buffStats = isSp ? null : (() => {
+            const ALL = ["STR", "AGI", "VIT", "INT", "SENSE"];
+            const sh = ALL.slice().sort(() => Math.random() - 0.5);
+            return [sh[0], sh[1]];
+          })();
+          return {
+            id: `shadow_admin_${now}_${i}`,
+            name: s.name,
+            tier: s.tier,
+            level: s.level,
+            exp: 0,
+            uses: 0,
+            extractedAt: now,
+            ...(buffStats ? { buffStats } : {}),
+          };
+        });
+      return { ...prev, shadowSoldiers: [...existing, ...toAdd] };
+    });
+  };
+
+  // ── رفع جندي ظل للحد الأقصى من الأدمن ──
+  const adminMaxShadow = (id) => update((prev) => {
+    const soldiers = prev.shadowSoldiers || [];
+    const updated = soldiers.map((s) => {
+      if (s.id !== id) return s;
+      // نتحقق بالمطابقة الجزئية عشان تشمل كل صيغ الاسم (من الأدمن أو من البول)
+      const isSpecial = s.name && (
+        s.name.includes("إيغريس") ||
+        s.name.includes("بيرو") ||
+        s.name.includes("بيليون")
+      );
+      const maxLv = (isSpecial && s.crystallized) ? 20 : 10;
+      return { ...s, level: maxLv, exp: 0 };
+    });
+    return { ...prev, shadowSoldiers: updated };
+  });
+
+  // ── إعطاء كرستال التطور لجندي ظل خاص ──
+  const adminGiveCrystal = (id) => update((prev) => {
+    const soldiers = prev.shadowSoldiers || [];
+    const updated = soldiers.map((s) => s.id !== id ? s : { ...s, crystallized: true, crystal: (s.crystal || 0) + 1 });
+    return { ...prev, shadowSoldiers: updated };
+  });
 
   // إطلاق/تحديث البوس العالمي مباشرة من لوحة الأدمن — بدون لمس كود السيرفر
   const adminSpawnBoss = async () => {
@@ -492,6 +562,8 @@ export default function App() {
     return { ...prev, inventory, equipped };
   });
 
+
+
   return (
     <div style={{ minHeight: "100vh", background: T.bg, position: "relative" }}>
       <style>{CSS}</style>
@@ -536,7 +608,7 @@ export default function App() {
               state={state} onComplete={completeQuest} onDelete={deleteQuest}
               onAdd={addQuest} onPotion={usePotion} onRest={restPlayer} combatFlash={combatFlash}
               onUseSkill={useSkill}
-              onBattleEnd={({ playerHp, potions: newPotions, gate, monster, won, loot, exp: expGained, escaped, shadowExtracted }) => {
+              onBattleEnd={({ playerHp, potions: newPotions, gate, monster, won, loot, exp: expGained, escaped, shadowExtracted, crystalDropped }) => {
                 update((prev) => {
                   let next = { ...prev, playerHp: playerHp ?? prev.playerHp };
                   if (newPotions !== undefined) next.potions = newPotions;
@@ -568,6 +640,10 @@ export default function App() {
                     // 👤⚡ استخراج جندي ظل (إن نجحت المحاولة) + تدريب الجنود المنشورين حالياً
                     next = commitShadowExtraction(next, shadowExtracted);
                     next = trainDeployedShadows(next);
+                    // 💎 كرستال التطوير من S Rank
+                    if (crystalDropped) {
+                      next.crystals = (next.crystals || 0) + 1;
+                    }
                     // فحص الإنجازات
                     const newlyUnlocked = checkNewAchievements(next);
                     if (newlyUnlocked.length > 0) {
@@ -585,7 +661,7 @@ export default function App() {
                   }
                   return next;
                 });
-                if (won && shadowExtracted) setShadowArise(shadowExtracted);
+                if (won && shadowExtracted && !shadowExtracted.duplicate) setShadowArise(shadowExtracted);
               }}
             />
           )}
@@ -603,7 +679,20 @@ export default function App() {
             <LootPage state={state} onEquip={equipItem} onUpgrade={upgradeItem} onCombine={combineItems} />
           )}
           {page === "SHADOW" && (
-            <ShadowArmyPage state={state} onToggleDeploy={(id) => update((prev) => toggleShadowDeployState(prev, id))} />
+            <ShadowArmyPage
+              state={state}
+              onToggleDeploy={(id) => update((prev) => toggleShadowDeployState(prev, id))}
+              onCrystallize={(id) => update((prev) => {
+                if (!prev.crystals || prev.crystals <= 0) return prev;
+                const soldiers = prev.shadowSoldiers || [];
+                const updated = soldiers.map((s) => {
+                  if (s.id !== id) return s;
+                  // التبلور يفتح LV.11-20 ويرفع اللفل فوراً من 10 إلى 11
+                  return { ...s, crystallized: true, level: (s.level || 10) + 1, exp: 0 };
+                });
+                return { ...prev, shadowSoldiers: updated, crystals: (prev.crystals || 1) - 1 };
+              })}
+            />
           )}
           {page === "MMO" && (
             <LeaderboardPage
@@ -679,48 +768,123 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* ── STAMINA & HP ── */}
-                    <div style={{ background: "rgba(96,165,250,0.08)", border: "1px solid #60a5fa20", borderRadius: 10, padding: "14px 16px" }}>
-                      <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#60a5fa", marginBottom: 10 }}>⚡ STAMINA & HP</div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => adminSet({ stamina: maxStaminaForLevel(state.level || 1) })} style={{ flex: 1, padding: "7px", borderRadius: 6, border: "1px solid #60a5fa40", background: "rgba(96,165,250,0.12)", color: "#60a5fa", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>⚡ ستامينا 700</button>
-                        <button onClick={() => { const max = maxPlayerHp(effectiveStats(state)); adminSet({ playerHp: max }); }} style={{ flex: 1, padding: "7px", borderRadius: 6, border: "1px solid #10b98140", background: "rgba(16,185,129,0.12)", color: "#10b981", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>❤️ HP كامل</button>
+                    {/* ── STAMINA & HP + ALL LOOT (2-col) ── */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div style={{ background: "rgba(96,165,250,0.08)", border: "1px solid #60a5fa20", borderRadius: 10, padding: "12px 12px" }}>
+                        <div style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: 2, color: "#60a5fa", marginBottom: 8 }}>⚡ STAMINA & HP</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                          <button onClick={() => adminSet({ stamina: maxStaminaForLevel(state.level || 1) })} style={{ padding: "6px 4px", borderRadius: 6, border: "1px solid #60a5fa40", background: "rgba(96,165,250,0.12)", color: "#60a5fa", fontFamily: "monospace", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>⚡ ستامينا MAX</button>
+                          <button onClick={() => { const max = maxPlayerHp(effectiveStats(state)); adminSet({ playerHp: max }); }} style={{ padding: "6px 4px", borderRadius: 6, border: "1px solid #10b98140", background: "rgba(16,185,129,0.12)", color: "#10b981", fontFamily: "monospace", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>❤️ HP كامل</button>
+                          <button onClick={() => adminSet({ potions: (state.potions || 0) + 5 })} style={{ padding: "6px 4px", borderRadius: 6, border: "1px solid #10b98140", background: "rgba(16,185,129,0.08)", color: "#10b981", fontFamily: "monospace", fontSize: 9, cursor: "pointer" }}>🧪 +5 جرعات</button>
+                        </div>
                       </div>
-                      <button onClick={() => adminSet({ potions: (state.potions || 0) + 5 })} style={{ width: "100%", marginTop: 8, padding: "7px", borderRadius: 6, border: "1px solid #10b98140", background: "rgba(16,185,129,0.08)", color: "#10b981", fontFamily: "monospace", fontSize: 10, cursor: "pointer" }}>🧪 +5 جرعات شفاء</button>
+                      <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid #fbbf2420", borderRadius: 10, padding: "12px 12px" }}>
+                        <div style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: 2, color: "#fbbf24", marginBottom: 8 }}>🎁 ALL LOOT</div>
+                        <div style={{ fontFamily: "monospace", fontSize: 9, color: "#6b7280", marginBottom: 8, lineHeight: 1.4 }}>
+                          99× من كل أيتم (E→SSS)
+                        </div>
+                        <button
+                          onClick={adminGiveAllLoot}
+                          style={{ width: "100%", padding: "8px 4px", borderRadius: 6, border: "1px solid #fbbf2460", background: "rgba(251,191,36,0.15)", color: "#fbbf24", fontFamily: "monospace", fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                        >
+                          ✦ كل اللوت ✦
+                        </button>
+                      </div>
                     </div>
 
-                    {/* ── ALL LOOT ── */}
-                    <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid #fbbf2420", borderRadius: 10, padding: "14px 16px" }}>
-                      <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#fbbf24", marginBottom: 10 }}>🎁 ALL LOOT</div>
-                      <div style={{ fontFamily: "monospace", fontSize: 10, color: "#6b7280", marginBottom: 8 }}>
-                        يضيف 99× من كل أيتم في كل التيرز (E → SSS)
+                    {/* ── SHADOW ARMY ── */}
+                    <div style={{ background: "rgba(124,58,237,0.06)", border: "1px solid #7c3aed30", borderRadius: 10, padding: "14px 16px" }}>
+                      <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#a855f7", marginBottom: 10 }}>👥 SHADOW ARMY</div>
+
+                      {/* اختيار اللفل */}
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontFamily: "monospace", fontSize: 8, color: "#6b7280", marginBottom: 6, letterSpacing: 1 }}>مستوى الجنود (1–10)</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <button onClick={() => setAdminShadowLevel((v) => Math.max(1, v - 1))} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #a855f740", background: "rgba(168,85,247,0.12)", color: "#c084fc", fontWeight: 900, fontSize: 14, cursor: "pointer" }}>−</button>
+                          <div style={{ flex: 1, textAlign: "center", fontFamily: "'Orbitron',monospace", fontSize: 16, fontWeight: 900, color: "#a855f7" }}>LV.{adminShadowLevel}</div>
+                          <button onClick={() => setAdminShadowLevel((v) => Math.min(10, v + 1))} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #a855f740", background: "rgba(168,85,247,0.12)", color: "#c084fc", fontWeight: 900, fontSize: 14, cursor: "pointer" }}>+</button>
+                        </div>
+                        <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+                          {[1, 5, 10].map((lv) => (
+                            <button key={lv} onClick={() => setAdminShadowLevel(lv)} style={{ flex: 1, padding: "4px", borderRadius: 5, border: `1px solid ${adminShadowLevel === lv ? "#a855f7" : "#a855f730"}`, background: adminShadowLevel === lv ? "rgba(168,85,247,0.25)" : "rgba(168,85,247,0.06)", color: adminShadowLevel === lv ? "#c084fc" : "#6b7280", fontFamily: "monospace", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>LV.{lv}</button>
+                          ))}
+                        </div>
                       </div>
+
+                      {/* زر كل الظلال */}
                       <button
-                        onClick={adminGiveAllLoot}
-                        style={{ width: "100%", padding: "9px", borderRadius: 6, border: "1px solid #fbbf2460", background: "rgba(251,191,36,0.15)", color: "#fbbf24", fontFamily: "monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: 1 }}
+                        onClick={adminGiveAllShadows}
+                        style={{ width: "100%", marginBottom: 10, padding: "9px", borderRadius: 6, border: "1px solid #a855f760", background: "rgba(168,85,247,0.15)", color: "#c084fc", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: 1 }}
                       >
-                        ✦ أعطني كل اللوت ✦
+                        👑 كل جنود الظل — LV.{adminShadowLevel} 👑
                       </button>
+
+                      {/* قائمة الجنود الموجودين مع MAX LV */}
+                      {(state.shadowSoldiers || []).length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 8 }}>
+                          {(state.shadowSoldiers || []).map((s) => {
+                            const isSpecial = s.name && (s.name.includes("إيغريس") || s.name.includes("بيرو") || s.name.includes("بيليون"));
+                            const spColor = isSpecial ? "#ef4444" : "#a855f7";
+                            return (
+                              <div key={s.id} style={{ background: "rgba(0,0,0,0.3)", borderRadius: 7, padding: "7px 10px", border: `1px solid ${spColor}20`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontFamily: "monospace", fontSize: 8.5, color: spColor, fontWeight: 700, flex: 1 }}>
+                                  {s.name} <span style={{ color: "#6b7280" }}>· LV.{s.level}</span>
+                                  {s.crystallized && <span style={{ color: "#fbbf24" }}> 💎</span>}
+                                </span>
+                                <button
+                                  onClick={() => adminMaxShadow(s.id)}
+                                  style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #a855f740", background: "rgba(168,85,247,0.1)", color: "#c084fc", fontFamily: "monospace", fontSize: 8, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+                                >
+                                  ↑ MAX {isSpecial && s.crystallized ? "LV.20" : "LV.10"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div style={{ fontFamily: "monospace", fontSize: 8, color: "#4b5563", textAlign: "center" }}>الجنود الموجودين مسبقاً لن يتكرروا</div>
                     </div>
 
-                    {/* ── STAT POINTS ── */}
-                    <div style={{ background: "rgba(34,211,238,0.06)", border: "1px solid #22d3ee20", borderRadius: 10, padding: "14px 16px" }}>
-                      <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#22d3ee", marginBottom: 10 }}>◈ STAT POINTS</div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {[5, 10, 50].map((n) => (
-                          <button key={n} onClick={() => adminSet({ statPoints: (state.statPoints || 0) + n })} style={{ flex: 1, padding: "7px", borderRadius: 6, border: "1px solid #22d3ee40", background: "rgba(34,211,238,0.1)", color: "#22d3ee", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+{n}</button>
+                    {/* ── CRYSTAL ── */}
+                    <div style={{ background: "rgba(251,191,36,0.05)", border: "1px solid #fbbf2425", borderRadius: 10, padding: "14px 16px" }}>
+                      <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#fbbf24", marginBottom: 4 }}>💎 كرستال التطوير</div>
+                      <div style={{ fontFamily: "monospace", fontSize: 9, color: "#6b7280", marginBottom: 10, lineHeight: 1.5 }}>
+                        تُستخدم لتحويل الجنود الخاصين (إيغريس، بيرو، بيليون) إلى ما بعد LV.10 — حتى LV.20
+                        <br/>لديك الآن: <span style={{ color: "#fbbf24", fontWeight: 700 }}>{state.crystals || 0} 💎</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {[1, 3, 5].map((n) => (
+                          <button
+                            key={n}
+                            onClick={() => adminSet({ crystals: (state.crystals || 0) + n })}
+                            style={{ flex: 1, padding: "7px 4px", borderRadius: 6, border: "1px solid #fbbf2450", background: "linear-gradient(135deg,rgba(251,191,36,0.18),rgba(180,130,0,0.1))", color: "#fbbf24", fontFamily: "monospace", fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                          >
+                            +{n} 💎
+                          </button>
                         ))}
                       </div>
                     </div>
 
-                    {/* ── GATE ATTACKS ── */}
-                    <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid #fbbf2420", borderRadius: 10, padding: "14px 16px" }}>
-                      <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#fbbf24", marginBottom: 10 }}>🗡️ GATE ATTACKS</div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => adminSet({ gateAttacksToday: 0, lastGateAttackDate: null })} style={{ flex: 1, padding: "7px", borderRadius: 6, border: "1px solid #fbbf2440", background: "rgba(251,191,36,0.1)", color: "#fbbf24", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>↺ صفّر الهجمات</button>
-                        {[10, 29, 99].map((n) => (
-                          <button key={n} onClick={() => adminSet({ maxGateAttacksPerDay: n })} style={{ flex: 1, padding: "7px", borderRadius: 6, border: "1px solid #fbbf2420", background: state.maxGateAttacksPerDay === n ? "rgba(251,191,36,0.2)" : "transparent", color: "#fbbf24", fontFamily: "monospace", fontSize: 10, cursor: "pointer" }}>{n}/يوم</button>
-                        ))}
+                    {/* ── STAT POINTS + GATE ATTACKS (2-col) ── */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div style={{ background: "rgba(34,211,238,0.06)", border: "1px solid #22d3ee20", borderRadius: 10, padding: "12px 12px" }}>
+                        <div style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: 2, color: "#22d3ee", marginBottom: 8 }}>◈ STAT POINTS</div>
+                        <div style={{ display: "flex", gap: 5 }}>
+                          {[5, 10, 50].map((n) => (
+                            <button key={n} onClick={() => adminSet({ statPoints: (state.statPoints || 0) + n })} style={{ flex: 1, padding: "6px 3px", borderRadius: 6, border: "1px solid #22d3ee40", background: "rgba(34,211,238,0.1)", color: "#22d3ee", fontFamily: "monospace", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>+{n}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid #fbbf2420", borderRadius: 10, padding: "12px 12px" }}>
+                        <div style={{ fontFamily: "monospace", fontSize: 8, letterSpacing: 2, color: "#fbbf24", marginBottom: 8 }}>🗡️ GATE ATTACKS</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                          <button onClick={() => adminSet({ gateAttacksToday: 0, lastGateAttackDate: null })} style={{ padding: "6px 4px", borderRadius: 6, border: "1px solid #fbbf2440", background: "rgba(251,191,36,0.1)", color: "#fbbf24", fontFamily: "monospace", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>↺ صفّر الهجمات</button>
+                          <div style={{ display: "flex", gap: 4 }}>
+                            {[10, 29, 99].map((n) => (
+                              <button key={n} onClick={() => adminSet({ maxGateAttacksPerDay: n })} style={{ flex: 1, padding: "5px 2px", borderRadius: 5, border: "1px solid #fbbf2420", background: state.maxGateAttacksPerDay === n ? "rgba(251,191,36,0.2)" : "transparent", color: "#fbbf24", fontFamily: "monospace", fontSize: 9, cursor: "pointer" }}>{n}/يوم</button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -929,4 +1093,5 @@ export default function App() {
       )}
     </div>
   );
+
 }

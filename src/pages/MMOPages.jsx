@@ -76,7 +76,6 @@ const BROADCAST_TYPES = {
 function BroadcastTakeover({ videoUrl, overlayText, onDone }) {
   const [showText, setShowText] = useState(false);
 
-  // الرسالة تظهر بعد 3 ثواني من بداية الفيديو
   useEffect(() => {
     if (!overlayText) return;
     const t = setTimeout(() => setShowText(true), 3000);
@@ -90,7 +89,6 @@ function BroadcastTakeover({ videoUrl, overlayText, onDone }) {
       overflow: "hidden", background: "rgba(4,4,8,0.55)",
       animation: "bctFadeIn 0.35s ease-out both",
     }}>
-      {/* الفيديو في الخلفية — ظاهر دايماً بكامل الشاشة */}
       <video
         src={videoUrl}
         autoPlay playsInline
@@ -101,14 +99,10 @@ function BroadcastTakeover({ videoUrl, overlayText, onDone }) {
           opacity: 1,
         }}
       />
-
-      {/* تظليل حواف */}
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
         background: "radial-gradient(ellipse 80% 80% at 50% 50%, transparent 40%, rgba(0,0,0,0.6) 100%)",
       }} />
-
-      {/* ── النص يظهر بعد 3 ثواني بأنيميشن فخم ── */}
       {overlayText && showText && (
         <div style={{
           position: "relative", zIndex: 10,
@@ -117,14 +111,11 @@ function BroadcastTakeover({ videoUrl, overlayText, onDone }) {
           maxWidth: 700,
           animation: "takeoverTextIn 0.8s cubic-bezier(.22,1,.36,1) both",
         }}>
-          {/* خط عرضي فوق النص */}
           <div style={{
             height: 1, width: "60%", margin: "0 auto 20px",
             background: "linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent)",
             animation: "takeoverLineExpand 0.6s ease-out 0.1s both",
           }} />
-
-          {/* النص الرئيسي */}
           <div style={{
             fontFamily: "'Orbitron', monospace",
             fontSize: "clamp(22px, 4vw, 48px)",
@@ -138,8 +129,6 @@ function BroadcastTakeover({ videoUrl, overlayText, onDone }) {
           }}>
             {overlayText}
           </div>
-
-          {/* خط عرضي تحت النص */}
           <div style={{
             height: 1, width: "60%", margin: "20px auto 0",
             background: "linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent)",
@@ -147,8 +136,6 @@ function BroadcastTakeover({ videoUrl, overlayText, onDone }) {
           }} />
         </div>
       )}
-
-      {/* زر تجاوز */}
       <button onClick={onDone} style={{
         position: "absolute", top: 18, right: 18, zIndex: 20,
         background: "rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.2)",
@@ -156,7 +143,6 @@ function BroadcastTakeover({ videoUrl, overlayText, onDone }) {
         fontFamily: "monospace", fontSize: 11, cursor: "pointer",
         backdropFilter: "blur(4px)",
       }}>تجاوز ✕</button>
-
       <style>{`
         @keyframes bctFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes takeoverTextIn {
@@ -174,18 +160,17 @@ function BroadcastTakeover({ videoUrl, overlayText, onDone }) {
 
 export function BroadcastBanner({ fetchBroadcast }) {
   const [broadcast, setBroadcast] = useState(null);
-  const [dismissedId, setDismissedId] = useState(null);      // ID فريد لكل إعلان
+  const [dismissedId, setDismissedId] = useState(null);
   const [closeHover, setCloseHover] = useState(false);
   const [muteHover, setMuteHover] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [muted, setMuted] = useState(false);
-  const lastSoundIdRef = useRef(null);                        // ID آخر صوت شغل
+  const lastSoundIdRef = useRef(null);
   const audioRef = useRef(null);
   const [takeoverVisible, setTakeoverVisible] = useState(false);
-  const lastTakeoverIdRef = useRef(null);                     // ID آخر takeover شغل
+  const lastTakeoverIdRef = useRef(null);
   const takeoverTimerRef = useRef(null);
 
-  // نولد ID فريد لكل إعلان بناءً على محتواه + نوعه + توقيته
   function makeBroadcastId(data) {
     if (!data?.message) return null;
     return `${data.type}||${data.message}||${data.updated_at || data.created_at || ""}`;
@@ -198,7 +183,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
         const data = await fetchBroadcast();
         if (data?.message) {
           setBroadcast(prev => {
-            // لو الإعلان تغيّر نعيد ضبط leaving عشان الأنيميشن تشتغل صح
             if (makeBroadcastId(prev) !== makeBroadcastId(data)) {
               setLeaving(false);
               setDismissedId(null);
@@ -213,7 +197,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
     return () => clearInterval(t);
   }, [fetchBroadcast]);
 
-  // صوت مرة واحدة فقط لكل إعلان جديد
   useEffect(() => {
     if (!broadcast?.message) return;
     const id = makeBroadcastId(broadcast);
@@ -228,25 +211,21 @@ export function BroadcastBanner({ fetchBroadcast }) {
       const audio = new Audio(soundUrl);
       audio.volume = 0.55;
       audioRef.current = audio;
-      audio.play().catch(() => {/* المتصفح يمنع autoplay تجاهل بصمت */ });
+      audio.play().catch(() => {});
     } catch { }
   }, [broadcast?.message, broadcast?.type, broadcast?.sound, broadcast?.updated_at, broadcast?.created_at, muted]);
 
-  // شاشة Takeover — تشتغل مرة واحدة لكل إعلان جديد
   useEffect(() => {
     if (broadcast?.type !== "takeover" || !broadcast?.message) return;
     const id = makeBroadcastId(broadcast);
     if (lastTakeoverIdRef.current === id) return;
     lastTakeoverIdRef.current = id;
-
     setTakeoverVisible(true);
     clearTimeout(takeoverTimerRef.current);
-    // احتياط 25 ثانية لو الفيديو ما انتهى تلقائياً
     takeoverTimerRef.current = setTimeout(() => setTakeoverVisible(false), 25000);
     return () => clearTimeout(takeoverTimerRef.current);
   }, [broadcast?.type, broadcast?.message, broadcast?.updated_at, broadcast?.created_at]);
 
-  // Takeover: فيديو ملء الشاشة
   if (broadcast?.type === "takeover") {
     return takeoverVisible
       ? <BroadcastTakeover videoUrl={broadcast.videoUrl || broadcast.message} overlayText={broadcast.overlayText || ""} onDone={() => {
@@ -259,7 +238,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
   if (!broadcast?.message) return null;
 
   const broadcastId = makeBroadcastId(broadcast);
-  // مخفي لو المستخدم أغلقه
   if (dismissedId === broadcastId) return null;
 
   const cfg = BROADCAST_TYPES[broadcast.type] || BROADCAST_TYPES.info;
@@ -289,7 +267,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
         filter: `drop-shadow(0 12px 40px rgba(0,0,0,0.55))`,
       }}
     >
-      {/* ── حلقة الحدود المتحركة (rotating gradient border) ── */}
       <div style={{ position: "relative", borderRadius: 18, padding: 2, overflow: "hidden" }}>
         <div
           style={{
@@ -298,7 +275,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
             animation: "bcbSpin 3.2s linear infinite",
           }}
         />
-        {/* ── جسم الإعلان ── */}
         <div
           style={{
             position: "relative", zIndex: 1, borderRadius: 16,
@@ -310,7 +286,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
             overflow: "hidden",
           }}
         >
-          {/* ── توهج خلفي طافي ── */}
           <div
             style={{
               position: "absolute", top: "-40%", right: "-10%",
@@ -320,8 +295,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
               pointerEvents: "none",
             }}
           />
-
-          {/* ── شعاع لمعة يعبر الإعلان ── */}
           <div
             style={{
               position: "absolute", top: 0, bottom: 0, left: "-30%", width: "30%",
@@ -330,8 +303,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
               pointerEvents: "none",
             }}
           />
-
-          {/* ── أيقونة + نوع ── */}
           <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, zIndex: 1 }}>
             <div
               style={{
@@ -353,8 +324,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
               {cfg.label}
             </span>
           </div>
-
-          {/* ── النص ── */}
           <div
             style={{
               position: "relative", zIndex: 1, flex: 1, fontFamily: "monospace", fontSize: 13.5,
@@ -364,8 +333,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
           >
             {broadcast.message}
           </div>
-
-          {/* ── زر كتم/تشغيل الصوت ── */}
           <button
             onClick={toggleMute}
             onMouseEnter={() => setMuteHover(true)}
@@ -383,8 +350,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
               transform: muteHover ? "scale(1.08)" : "scale(1)",
             }}
           >{muted ? "🔇" : "🔊"}</button>
-
-          {/* ── زر الإغلاق ── */}
           <button
             onClick={handleClose}
             onMouseEnter={() => setCloseHover(true)}
@@ -403,7 +368,6 @@ export function BroadcastBanner({ fetchBroadcast }) {
           >✕</button>
         </div>
       </div>
-
       <style>{`
         @keyframes bcbIn {
           0% { opacity: 0; transform: translate(-50%, -26px) scale(0.92); }
@@ -472,28 +436,20 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
         maxHeight: "92vh", overflowY: "auto",
         position: "relative", overflow: "hidden",
       }}>
-
-        {/* ── BANNER ── */}
         <div style={{
           position: "relative", height: 140, overflow: "hidden",
           background: `linear-gradient(135deg, ${rank.color}35 0%, ${rank.color}10 50%, #04000f 100%)`
         }}>
-
-          {/* grid overlay */}
           <div style={{
             position: "absolute", inset: 0, opacity: 0.06,
             backgroundImage: `linear-gradient(${rank.color} 1px, transparent 1px), linear-gradient(90deg, ${rank.color} 1px, transparent 1px)`,
             backgroundSize: "30px 30px"
           }} />
-
-          {/* spinning aura */}
           <div style={{
             position: "absolute", inset: -60, opacity: 0.15, pointerEvents: "none",
             background: `conic-gradient(from 0deg, ${rank.color}, transparent 40%, ${rank.color} 60%, transparent)`,
             animation: "auraSpin 10s linear infinite"
           }} />
-
-          {/* particles */}
           {[8, 22, 40, 60, 78, 92].map((l, i) => (
             <div key={i} style={{
               position: "absolute", bottom: 0, left: `${l}%`,
@@ -503,16 +459,12 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
               animationDelay: `${i * 0.25}s`
             }} />
           ))}
-
-          {/* close */}
           <button onClick={onClose} style={{
             position: "absolute", top: 14, right: 14, width: 32, height: 32,
             borderRadius: "50%", border: `1px solid rgba(255,255,255,0.2)`,
             background: "rgba(0,0,0,0.5)", color: "#9ca3af", cursor: "pointer",
             fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10
           }}>✕</button>
-
-          {/* rank label top-left */}
           <div style={{
             position: "absolute", top: 16, left: 20, zIndex: 5,
             fontFamily: "'Orbitron',monospace", fontSize: 10, fontWeight: 700,
@@ -521,11 +473,8 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
           }}>
             {rank.title}
           </div>
-
-          {/* avatar — centered in banner bottom */}
           <div style={{ position: "absolute", bottom: 30, left: "50%", transform: "translateX(-50%)", zIndex: 5 }}>
             <div style={{ position: "relative", width: 84, height: 84 }}>
-              {/* glow ring */}
               <div style={{
                 position: "absolute", inset: -6, borderRadius: "50%",
                 boxShadow: `0 0 0 2px ${rank.color}, 0 0 20px ${rank.color}80`,
@@ -552,7 +501,6 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
                   {player.username?.[0]?.toUpperCase()}
                 </div>
               )}
-              {/* online dot */}
               <div style={{
                 position: "absolute", bottom: 4, right: 4, width: 16, height: 16,
                 borderRadius: "50%", background: "#23a55a",
@@ -563,10 +511,7 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
           </div>
         </div>
 
-        {/* ── BODY ── */}
         <div style={{ padding: "56px 28px 28px", position: "relative", zIndex: 2 }}>
-
-          {/* name + stats row */}
           <div style={{ textAlign: "center", marginBottom: 20 }}>
             <div style={{
               fontFamily: "'Orbitron',monospace", fontSize: 22, fontWeight: 900,
@@ -585,7 +530,6 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
             </div>
           </div>
 
-          {/* separator */}
           <div style={{ height: 1, background: `linear-gradient(to right, transparent, ${rank.color}40, transparent)`, marginBottom: 20 }} />
 
           {loading ? (
@@ -594,7 +538,6 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
             </div>
           ) : (
             <>
-              {/* ── EQUIPPED GEAR ── */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#a855f7", marginBottom: 12 }}>◈ العتاد المجهّز</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
@@ -620,7 +563,6 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
                 </div>
               </div>
 
-              {/* ── STATS ── */}
               {profileData?.stats && (
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontFamily: "monospace", fontSize: 9, letterSpacing: 3, color: "#a855f7", marginBottom: 12 }}>◈ الإحصائيات</div>
@@ -635,7 +577,6 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
                 </div>
               )}
 
-              {/* ── ACHIEVEMENTS ── */}
               <div style={{ height: 1, background: `linear-gradient(to right, transparent, ${rank.color}30, transparent)`, margin: "4px 0 20px" }} />
               {(() => {
                 let unlockedIds = [];
@@ -653,7 +594,6 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
 
                 return (
                   <div style={{ marginBottom: 20 }}>
-                    {/* هيدر */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 14, filter: `drop-shadow(0 0 6px ${T.gold})` }}>🏆</span>
@@ -663,8 +603,6 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
                         {sorted.length}/{total}
                       </span>
                     </div>
-
-                    {/* شريط تقدم */}
                     <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden", marginBottom: sorted.length > 0 ? 12 : 6 }}>
                       <div style={{
                         height: "100%", width: `${pct}%`,
@@ -676,8 +614,6 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
                         transition: "width 0.6s ease",
                       }} />
                     </div>
-
-                    {/* الإنجازات */}
                     {sorted.length > 0 ? (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                         {sorted.map((ach) => {
@@ -707,7 +643,6 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
                               onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.2) translateY(-2px)"}
                               onMouseLeave={(e) => e.currentTarget.style.transform = ""}
                             >
-                              {/* هالة دوّارة للأسطوري والذهبي */}
                               {(isLegendary || isGold) && (
                                 <div style={{
                                   position: "absolute", inset: -6, opacity: 0.3, pointerEvents: "none",
@@ -732,7 +667,6 @@ function ProfileModal({ player, profileData, loading, currentUser, onClose, onCh
                 );
               })()}
 
-              {/* ── ACTIONS ── */}
               {!isMe && currentUser && (
                 <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                   <button onClick={() => onChallenge(player.discord_id, player.username)} style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1px solid #a855f7", background: "rgba(168,85,247,0.15)", color: "#a855f7", fontFamily: "'Orbitron',monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: 1, transition: "all 0.2s", boxShadow: "0 0 0 0 #a855f7" }}
@@ -780,7 +714,6 @@ export function LeaderboardPage({ fetchLeaderboard, fetchProfile, currentUser, c
 
   useEffect(() => { load(); }, [load]);
 
-  // تحديث تلقائي كل 30 ثانية
   useEffect(() => {
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
@@ -814,7 +747,6 @@ export function LeaderboardPage({ fetchLeaderboard, fetchProfile, currentUser, c
         )}
       </div>
 
-      {/* PvP Result */}
       {pvpResult && (
         <div style={{
           ...glass({ padding: "16px 20px" }), marginBottom: 20,
@@ -863,12 +795,9 @@ export function LeaderboardPage({ fetchLeaderboard, fetchProfile, currentUser, c
                 boxShadow: isMe ? `0 0 16px ${T.gold}30` : undefined,
                 animation: `fadeUp 0.3s ease-out ${i * 0.03}s both`,
               }}>
-                {/* الترتيب */}
                 <div style={{ width: 32, textAlign: "center", fontFamily: "'Orbitron', monospace", fontSize: i < 3 ? 20 : 13, color: i < 3 ? T.gold : T.muted }}>
                   {i < 3 ? medals[i] : `#${i + 1}`}
                 </div>
-
-                {/* الأفاتار — قابل للضغط */}
                 <div onClick={() => openProfile(p)} style={{ cursor: "pointer", position: "relative", flexShrink: 0 }}
                   title={`عرض بروفايل ${p.username}`}>
                   {p.avatar ? (
@@ -887,8 +816,6 @@ export function LeaderboardPage({ fetchLeaderboard, fetchProfile, currentUser, c
                     <svg width="7" height="7" viewBox="0 0 10 10" fill="white"><circle cx="5" cy="5" r="4" /></svg>
                   </div>
                 </div>
-
-                {/* الاسم + الرتبة */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontFamily: "monospace", fontSize: 13, color: isMe ? T.gold : T.text, fontWeight: isMe ? 700 : 400 }}>
@@ -902,16 +829,12 @@ export function LeaderboardPage({ fetchLeaderboard, fetchProfile, currentUser, c
                     Lv.{p.level} · {p.season_points || 0} نقطة موسم
                   </div>
                 </div>
-
-                {/* القوة */}
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 14, color: T.cyan, fontWeight: 700 }}>
                     {(p.power ?? 0).toLocaleString()}
                   </div>
                   <div style={{ fontFamily: "monospace", fontSize: 9, color: T.muted }}>POWER</div>
                 </div>
-
-                {/* زر PvP */}
                 {currentUser && !isMe && (
                   <button
                     onClick={() => handleChallenge(p.discord_id, p.username)}
@@ -937,7 +860,6 @@ export function LeaderboardPage({ fetchLeaderboard, fetchProfile, currentUser, c
         يتحدث تلقائياً كل 30 ثانية · {rows.length} لاعب مسجل
       </div>
 
-      {/* ── PROFILE MODAL ── */}
       {selectedPlayer && (
         <ProfileModal
           player={selectedPlayer}
@@ -960,11 +882,11 @@ function threatTier(maxHp = 0) {
   return { label: "تهديد: متوسط", color: T.gold };
 }
 
-// ─── DAILY ATTACK LIMIT — يتصفّر مرة كل يوم فقط، مو كل ما يتغيّر البوس ──────────
+// ─── DAILY ATTACK LIMIT ──────────────────────────────────────────────────────
 const WB_ATTACKS_KEY = "wb_daily_attacks";
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return new Date().toISOString().slice(0, 10);
 }
 
 function loadDailyAttacks(userId) {
@@ -982,9 +904,7 @@ function saveDailyAttacks(userId, count) {
     const data = JSON.parse(localStorage.getItem(WB_ATTACKS_KEY) || "{}");
     data[userId || "guest"] = { date: todayKey(), count };
     localStorage.setItem(WB_ATTACKS_KEY, JSON.stringify(data));
-  } catch {
-    // localStorage غير متاح — العداد يبقى بالذاكرة فقط لهذه الجلسة
-  }
+  } catch {}
 }
 
 // ─── WORLD BOSS PAGE ──────────────────────────────────────────────────────────
@@ -993,20 +913,21 @@ export function WorldBossPage({ fetchBoss, attackBoss, currentUser, state }) {
   const [loading, setLoading] = useState(true);
   const [attacking, setAttacking] = useState(false);
   const [lastHit, setLastHit] = useState(null);
+  const [showCrit, setShowCrit] = useState(false);
 
-  // الحالة الخاصة بالعداد والتنبيهات — العداد يومي ويُحفظ محلياً
+  const DAILY_LIMIT = 10;
   const [attackCount, setAttackCount] = useState(() => loadDailyAttacks(currentUser?.id));
   const [notification, setNotification] = useState(null);
   const [timeLeft, setTimeLeft] = useState("");
+  const [respawnLeft, setRespawnLeft] = useState("");
 
-  // إعادة قراءة العداد إذا تغيّر المستخدم (تسجيل دخول بعد فتح الصفحة)
   useEffect(() => {
     setAttackCount(loadDailyAttacks(currentUser?.id));
   }, [currentUser?.id]);
 
-  const showNotification = (msg) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 3000);
+  const showNotification = (msg, color = T.gold) => {
+    setNotification({ msg, color });
+    setTimeout(() => setNotification(null), 3500);
   };
 
   const load = useCallback(async () => {
@@ -1022,10 +943,9 @@ export function WorldBossPage({ fetchBoss, attackBoss, currentUser, state }) {
     return () => clearInterval(t);
   }, [load]);
 
-  // عداد تنازلي حي لوقت انتهاء البوس الحالي
   useEffect(() => {
     const endsAt = data?.boss?.ends_at;
-    if (!endsAt) { setTimeLeft(""); return; }
+    if (!endsAt || data?.boss?.status === "respawning") { setTimeLeft(""); return; }
     const tick = () => {
       const diff = new Date(endsAt) - new Date();
       if (diff <= 0) { setTimeLeft("انتهت الجولة"); return; }
@@ -1037,33 +957,56 @@ export function WorldBossPage({ fetchBoss, attackBoss, currentUser, state }) {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [data?.boss?.ends_at]);
+  }, [data?.boss?.ends_at, data?.boss?.status]);
+
+  useEffect(() => {
+    const startsAt = data?.boss?.starts_at;
+    if (!startsAt || data?.boss?.status !== "respawning") { setRespawnLeft(""); return; }
+    const tick = () => {
+      const diff = new Date(startsAt) - new Date();
+      if (diff <= 0) { setRespawnLeft("يعود الآن..."); load(); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setRespawnLeft(`${h}س ${m}د ${s}ث`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [data?.boss?.starts_at, data?.boss?.status, load]);
 
   const handleAttack = async () => {
-    // 1. القيد: إذا وصل لـ 3 ضربات، نمنعه ونظهر التنبيه المخصص
-    if (attackCount >= 70) {
-      showNotification("⚠️ استنفدت ضرباتك الثلاث لهذا اليوم! ترجع غداً.");
+    if (attackCount >= DAILY_LIMIT) {
+      showNotification(`⚠️ استنفدت ضرباتك الـ${DAILY_LIMIT} لهذا اليوم! ترجع غداً.`, "#ef4444");
       return;
     }
-
     if (!currentUser || attacking) return;
     setAttacking(true);
     const str = state?.stats?.STR || 10;
     const level = state?.level || 1;
 
-    // 2. إرسال الضربة
     const result = await attackBoss(str, level);
-
     setAttacking(false);
 
     if (result && result.damage) {
       setLastHit(result);
-      // 3. زيادة العداد اليومي وحفظه محلياً
+      if (result.is_crit) {
+        setShowCrit(true);
+        setTimeout(() => setShowCrit(false), 1200);
+      }
       setAttackCount(prev => {
         const next = prev + 1;
         saveDailyAttacks(currentUser?.id, next);
         return next;
       });
+      if (result.rewards) {
+        const medals = ["🥇", "🥈", "🥉"];
+        const lines = result.rewards.map((r, i) => `${medals[i] || ""} ${r.username}: +${Number(r.exp_reward).toLocaleString()} EXP`).join("  |  ");
+        showNotification(`🏆 جوائز البوس — ${lines}`, T.gold);
+      }
+      if (result.is_dead) {
+        showNotification("💀 البوس سقط! الجوائز تُوزَّع على أعلى 3 لاعبين بالضرر", "#22d3ee");
+      }
       await load();
     }
   };
@@ -1079,29 +1022,46 @@ export function WorldBossPage({ fetchBoss, attackBoss, currentUser, state }) {
 
   const boss = data?.boss;
   const ranking = data?.ranking || [];
-  const tier = boss ? threatTier(boss.max_hp) : null;
-  const hpPct = boss ? Math.max(0, Math.min(100, (boss.current_hp / boss.max_hp) * 100)) : 0;
+  const isRespawning = boss?.status === "respawning";
+  const tier = boss ? threatTier(boss.max_hp) : { color: "#ef4444", label: "تهديد: قاتل" };
+  const hpPct = boss && !isRespawning ? Math.max(0, Math.min(100, (boss.current_hp / boss.max_hp) * 100)) : 0;
+  const isExhausted = attackCount >= DAILY_LIMIT;
+  const isDisabled = attacking || (boss && !isRespawning && boss.is_dead) || isExhausted;
 
   return (
     <div style={{ minHeight: "100vh", paddingTop: 80, padding: "80px 24px 40px", maxWidth: 700, margin: "0 auto", animation: "pageInRight 0.4s ease-out both" }}>
       <style>{`
         @keyframes bossGateGlow { 0%,100%{ opacity:.55; transform:scale(1); } 50%{ opacity:.85; transform:scale(1.03); } }
-        @keyframes emberRiseBoss { 0%{ transform:translateY(0) scale(1); opacity:0; } 15%{ opacity:.9; } 100%{ transform:translateY(-160px) translateX(var(--ex,0)); opacity:0; scale:0.3; } }
+        @keyframes emberRiseBoss { 0%{ transform:translateY(0) scale(1); opacity:0; } 15%{ opacity:.9; } 100%{ transform:translateY(-200px) translateX(var(--ex,0)); opacity:0; scale:0.3; } }
         @keyframes hpShimmer { from{ transform:translateX(-130%); } to{ transform:translateX(280%); } }
-        @keyframes nameFlicker { 0%,100%{ filter:drop-shadow(0 0 14px #ef4444aa); } 50%{ filter:drop-shadow(0 0 26px #ff0055cc); } }
+        @keyframes nameFlicker { 0%,100%{ filter:drop-shadow(0 0 14px #ef4444aa); } 50%{ filter:drop-shadow(0 0 30px #ff0055ee); } }
+        @keyframes critPop { 0%{ transform:scale(0.5) translateY(0); opacity:1; } 60%{ transform:scale(1.4) translateY(-30px); opacity:1; } 100%{ transform:scale(1) translateY(-60px); opacity:0; } }
+        @keyframes portalPulse { 0%,100%{ box-shadow:0 0 40px #ef444455, 0 0 80px #ff005530; } 50%{ box-shadow:0 0 70px #ef4444aa, 0 0 140px #ff005560; } }
+        @keyframes portalRing { 0%{ transform:rotate(0deg) scale(1); opacity:.7; } 50%{ transform:rotate(180deg) scale(1.08); opacity:1; } 100%{ transform:rotate(360deg) scale(1); opacity:.7; } }
+        @keyframes respawnPulse { 0%,100%{ opacity:.6; } 50%{ opacity:1; } }
       `}</style>
 
-      {/* التنبيه المخصص (Custom Toast) */}
       {notification && (
         <div style={{
-          position: "fixed", top: 80, right: 20, zIndex: 1000,
-          ...glass({ padding: "12px 20px" }),
-          border: `1px solid ${T.gold}`,
-          color: T.gold,
-          fontFamily: "monospace", fontSize: 12,
+          position: "fixed", top: 80, right: 20, left: 20, zIndex: 1000,
+          ...glass({ padding: "14px 20px" }),
+          border: `1px solid ${notification.color}`,
+          color: notification.color,
+          fontFamily: "monospace", fontSize: 12, textAlign: "center",
           animation: "fadeUp 0.3s ease-out",
         }}>
-          {notification}
+          {notification.msg}
+        </div>
+      )}
+
+      {showCrit && (
+        <div style={{
+          position: "fixed", top: "38%", left: "50%", transform: "translateX(-50%)",
+          zIndex: 2000, fontFamily: "'Orbitron', monospace", fontSize: 40, fontWeight: 900,
+          color: "#fbbf24", textShadow: "0 0 30px #fbbf24, 0 0 60px #ff0055",
+          animation: "critPop 1.2s ease-out forwards", pointerEvents: "none",
+        }}>
+          ✦ CRITICAL ✦
         </div>
       )}
 
@@ -1110,102 +1070,151 @@ export function WorldBossPage({ fetchBoss, attackBoss, currentUser, state }) {
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e", animation: "pulseOpacity 1.4s infinite" }} />
           <span style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: 4, color: "#ef4444" }}>◈ WORLD BOSS GATE — مفتوحة دائماً</span>
         </div>
-        <h2 style={{ fontFamily: "'Orbitron', monospace", fontSize: 24, fontWeight: 700, color: T.text }}>زنزانه مزدوجة </h2>
+        <h2 style={{ fontFamily: "'Orbitron', monospace", fontSize: 24, fontWeight: 700, color: T.text }}>الزنزانة المزدوجة</h2>
+        <div style={{ fontFamily: "monospace", fontSize: 10, color: T.muted, marginTop: 4 }}>
+          الضربات اليومية: <span style={{ color: isExhausted ? "#ef4444" : T.gold, fontWeight: 700 }}>{attackCount} / {DAILY_LIMIT}</span>
+          {isExhausted && <span style={{ color: "#ef4444", marginRight: 8 }}> — استنفدت حصتك اليوم</span>}
+        </div>
       </div>
 
       {!boss ? (
-        <div style={{ ...glass({ padding: "48px 28px" }), textAlign: "center", position: "relative", overflow: "hidden", border: `1px solid #ef444440` }}>
-          <div style={{ position: "absolute", inset: -50, opacity: 0.1, pointerEvents: "none", background: "conic-gradient(from 0deg, #ef4444, transparent, #ef4444)", animation: "auraSpin 8s linear infinite" }} />
+        <div style={{ ...glass({ padding: "56px 28px" }), textAlign: "center", position: "relative", overflow: "hidden", border: `1px solid #ef444455`, animation: "portalPulse 3s ease-in-out infinite" }}>
+          <div style={{ position: "absolute", inset: -60, opacity: 0.08, pointerEvents: "none", background: "conic-gradient(from 0deg, #ef4444, #ff0055, transparent 30%, #ef4444 60%, transparent)", animation: "auraSpin 10s linear infinite" }} />
           <div style={{ position: "relative" }}>
-            <div style={{ width: 90, height: 90, margin: "0 auto 18px", borderRadius: "50%", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px dashed #ef444460", animation: "bossGateGlow 2.6s ease-in-out infinite" }} />
-              <div style={{ position: "absolute", inset: 14, borderRadius: "50%", background: "radial-gradient(circle, #ef444433, transparent 70%)" }} />
-              <span style={{ fontSize: 34 }}>🌀</span>
+            <div style={{ width: 110, height: 110, margin: "0 auto 20px", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid #ef444480", animation: "portalRing 4s linear infinite" }} />
+              <div style={{ position: "absolute", inset: 8, borderRadius: "50%", border: "1px dashed #ff005560", animation: "portalRing 6s linear infinite reverse" }} />
+              <div style={{ position: "absolute", inset: 20, borderRadius: "50%", background: "radial-gradient(circle, #ef444440, transparent 70%)" }} />
+              <span style={{ fontSize: 42, filter: "drop-shadow(0 0 16px #ef4444)" }}>🌀</span>
             </div>
-            <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 18, color: "#ef4444", fontWeight: 700, letterSpacing: 1 }}>البوابة مفتوحة — البوس يتجمّع</div>
-            <div style={{ fontFamily: "monospace", fontSize: 12, color: T.muted, marginTop: 8 }}>
-              جولة جديدة قادمة خلال لحظات. عُد بعد قليل لتكون أول من يضرب.
+            <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 18, color: "#ef4444", fontWeight: 700, letterSpacing: 1 }}>البوابة مفتوحة — لا يوجد بوس نشط</div>
+            <div style={{ fontFamily: "monospace", fontSize: 12, color: T.muted, marginTop: 10 }}>
+              جولة جديدة قادمة. عُد بعد قليل لتكون أول من يضرب.
             </div>
           </div>
         </div>
+
+      ) : isRespawning ? (
+        <div style={{ ...glass({ padding: "56px 28px" }), textAlign: "center", position: "relative", overflow: "hidden", border: "1px solid #6b21a855" }}>
+          <div style={{ position: "absolute", inset: -60, opacity: 0.06, pointerEvents: "none", background: "conic-gradient(from 0deg, #a855f7, transparent, #a855f7)", animation: "auraSpin 12s linear infinite" }} />
+          <div style={{ position: "relative" }}>
+            <div style={{ width: 110, height: 110, margin: "0 auto 20px", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid #a855f780", animation: "portalRing 5s linear infinite" }} />
+              <div style={{ position: "absolute", inset: 10, borderRadius: "50%", border: "1px dashed #7c3aed60", animation: "portalRing 8s linear infinite reverse" }} />
+              <div style={{ position: "absolute", inset: 22, borderRadius: "50%", background: "radial-gradient(circle, #7c3aed35, transparent 70%)" }} />
+              <span style={{ fontSize: 42, filter: "drop-shadow(0 0 16px #a855f7)", animation: "respawnPulse 1.4s ease-in-out infinite" }}>💀</span>
+            </div>
+            <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 18, color: "#a855f7", fontWeight: 700, letterSpacing: 1 }}>البوس سقط — يعود من الظلام</div>
+            {respawnLeft && (
+              <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 32, color: "#ef4444", fontWeight: 900, margin: "18px 0 8px", textShadow: "0 0 20px #ef444490" }}>
+                {respawnLeft}
+              </div>
+            )}
+            <div style={{ fontFamily: "monospace", fontSize: 11, color: T.muted }}>
+              استعدّ — بعد انتهاء العداد يعود البوس أقوى
+            </div>
+          </div>
+        </div>
+
       ) : (
         <>
-          <div style={{ ...glass({ padding: "30px" }), marginBottom: 20, border: `1px solid ${tier.color}70`, position: "relative", overflow: "hidden", boxShadow: `0 0 40px ${tier.color}25, 0 10px 30px rgba(0,0,0,0.4)` }}>
-            {/* هالة دوّارة + توهج عميق */}
-            <div style={{ position: "absolute", inset: -50, opacity: 0.12, pointerEvents: "none", background: `conic-gradient(from 0deg, ${tier.color}, transparent, ${tier.color})`, animation: "auraSpin 7s linear infinite" }} />
-            <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 110%, ${tier.color}30, transparent 60%)`, pointerEvents: "none" }} />
-            {/* جسيمات رماد صاعدة */}
+          <div style={{ ...glass({ padding: "30px" }), marginBottom: 20, border: `1px solid ${tier.color}70`, position: "relative", overflow: "hidden", boxShadow: `0 0 50px ${tier.color}30, 0 10px 40px rgba(0,0,0,0.5)`, animation: "portalPulse 4s ease-in-out infinite" }}>
+            <div style={{ position: "absolute", inset: -60, opacity: 0.1, pointerEvents: "none", background: `conic-gradient(from 0deg, ${tier.color}, #ff0055, transparent 30%, ${tier.color} 65%, transparent)`, animation: "auraSpin 8s linear infinite" }} />
+            <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 115%, ${tier.color}35, transparent 55%)`, pointerEvents: "none" }} />
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-              {[12, 28, 46, 64, 80].map((left, i) => (
+              {[8, 22, 38, 55, 70, 84].map((left, i) => (
                 <span key={i} style={{
-                  position: "absolute", bottom: 0, left: `${left}%`, width: 3, height: 3, borderRadius: "50%",
-                  background: tier.color, boxShadow: `0 0 8px ${tier.color}`,
-                  animation: `emberRiseBoss ${3 + i * 0.5}s ease-in infinite`, animationDelay: `${i * 0.6}s`, "--ex": `${(i % 2 ? 1 : -1) * 14}px`,
+                  position: "absolute", bottom: 0, left: `${left}%`, width: i % 2 ? 2 : 3, height: i % 2 ? 2 : 3, borderRadius: "50%",
+                  background: i % 3 ? tier.color : "#ff0055", boxShadow: `0 0 8px ${tier.color}`,
+                  animation: `emberRiseBoss ${3 + i * 0.45}s ease-in infinite`, animationDelay: `${i * 0.55}s`,
+                  "--ex": `${(i % 2 ? 1 : -1) * (10 + i * 3)}px`,
                 }} />
               ))}
             </div>
 
             <div style={{ position: "relative" }}>
-              {/* شريط تهديد + عداد تنازلي */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                 <span style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 700, letterSpacing: 2, color: tier.color, background: `${tier.color}1a`, border: `1px solid ${tier.color}55`, borderRadius: 5, padding: "3px 9px" }}>
                   {tier.label}
                 </span>
                 {timeLeft && (
-                  <span style={{ fontFamily: "monospace", fontSize: 11, color: T.muted }}>⏳ {timeLeft}</span>
+                  <span style={{ fontFamily: "monospace", fontSize: 11, color: T.muted }}>⏳ ينتهي خلال: {timeLeft}</span>
                 )}
               </div>
 
-              {/* اسم البوس بشكل درامي */}
-              <div style={{
-                fontFamily: "'Orbitron', monospace", fontSize: 28, fontWeight: 900, marginBottom: 16, letterSpacing: 1,
-                color: tier.color, animation: "nameFlicker 2.4s ease-in-out infinite", textShadow: `0 0 24px ${tier.color}90`,
-              }}>
-                {boss.name}
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18 }}>
+                <div style={{ width: 72, height: 72, flexShrink: 0, borderRadius: "50%", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${tier.color}90`, animation: "portalRing 3.5s linear infinite" }} />
+                  <div style={{ position: "absolute", inset: 8, borderRadius: "50%", border: `1px dashed ${tier.color}60`, animation: "portalRing 5s linear infinite reverse" }} />
+                  <div style={{ position: "absolute", inset: 18, borderRadius: "50%", background: `radial-gradient(circle, ${tier.color}50, transparent 70%)` }} />
+                  <span style={{ fontSize: 26, filter: `drop-shadow(0 0 12px ${tier.color})` }}>👹</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: "monospace", fontSize: 10, color: T.muted, marginBottom: 4, letterSpacing: 2 }}>WORLD BOSS</div>
+                  <div style={{
+                    fontFamily: "'Orbitron', monospace", fontSize: 22, fontWeight: 900, letterSpacing: 1,
+                    color: tier.color, animation: "nameFlicker 2.4s ease-in-out infinite", textShadow: `0 0 24px ${tier.color}90`,
+                  }}>
+                    {boss.name}
+                  </div>
+                </div>
               </div>
 
-              {/* شريط الحياة الفخم */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                   <span style={{ fontFamily: "monospace", fontSize: 11, color: T.muted }}>❤️ نقاط الحياة</span>
                   <span style={{ fontFamily: "'Orbitron', monospace", fontSize: 12, color: tier.color, fontWeight: 700 }}>
-                    {boss.current_hp.toLocaleString()} / {boss.max_hp.toLocaleString()} ({hpPct.toFixed(1)}%)
+                    {Number(boss.current_hp).toLocaleString()} / {Number(boss.max_hp).toLocaleString()} ({hpPct.toFixed(1)}%)
                   </span>
                 </div>
-                <div style={{ height: 16, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden", position: "relative", border: `1px solid ${tier.color}30` }}>
-                  <div style={{ height: "100%", width: `${hpPct}%`, background: `linear-gradient(90deg, ${tier.color}, #ff0055)`, borderRadius: 99, transition: "width 0.5s ease", boxShadow: `0 0 14px ${tier.color}90`, position: "relative", overflow: "hidden" }}>
-                    {hpPct > 0 && <div style={{ position: "absolute", top: 0, bottom: 0, width: "35%", background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent)", animation: "hpShimmer 2.2s linear infinite" }} />}
+                <div style={{ height: 18, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden", position: "relative", border: `1px solid ${tier.color}30` }}>
+                  <div style={{
+                    height: "100%", width: `${hpPct}%`,
+                    background: hpPct > 50 ? `linear-gradient(90deg, ${tier.color}, #ff0055)` : hpPct > 20 ? "linear-gradient(90deg, #f59e0b, #ef4444)" : "linear-gradient(90deg, #ef4444, #7f1d1d)",
+                    borderRadius: 99, transition: "width 0.6s ease",
+                    boxShadow: `0 0 16px ${tier.color}90`, position: "relative", overflow: "hidden",
+                  }}>
+                    {hpPct > 0 && <div style={{ position: "absolute", top: 0, bottom: 0, width: "30%", background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)", animation: "hpShimmer 2s linear infinite" }} />}
                   </div>
                 </div>
               </div>
 
               {lastHit && (
-                <div style={{ ...glass({ padding: "10px 14px" }), marginBottom: 12, border: `1px solid ${T.cyan}40`, animation: "fadeUp 0.3s ease-out" }}>
-                  <span style={{ fontFamily: "monospace", fontSize: 12, color: T.cyan }}>
-                    ⚔️ ضربتك الأخيرة: <strong style={{ color: T.gold }}>{lastHit.damage?.toLocaleString()}</strong> ضرر
-                    {lastHit.is_dead ? <span style={{ color: T.gold }}> 🏆 قتلت البوس!</span> : ""}
+                <div style={{
+                  ...glass({ padding: "10px 16px" }), marginBottom: 12,
+                  border: `1px solid ${lastHit.is_crit ? "#fbbf2460" : `${T.cyan}40`}`,
+                  animation: "fadeUp 0.3s ease-out",
+                  background: lastHit.is_crit ? "rgba(251,191,36,0.08)" : undefined,
+                }}>
+                  <span style={{ fontFamily: "monospace", fontSize: 12, color: lastHit.is_crit ? "#fbbf24" : T.cyan }}>
+                    {lastHit.is_crit ? "✦ CRITICAL HIT! " : "⚔️ "}
+                    ضربتك: <strong style={{ color: lastHit.is_crit ? "#fbbf24" : T.gold, fontSize: lastHit.is_crit ? 15 : 12 }}>{Number(lastHit.damage).toLocaleString()}</strong> ضرر
+                    {lastHit.daily_damage && <span style={{ color: T.muted, fontSize: 11 }}> | يومي: {Number(lastHit.daily_damage).toLocaleString()}</span>}
+                    {lastHit.is_dead && <span style={{ color: T.gold }}> 💀 قتلت البوس!</span>}
                   </span>
                 </div>
               )}
 
               {!currentUser ? (
-                <div style={{ fontFamily: "monospace", fontSize: 12, color: T.gold, textAlign: "center", padding: 12 }}>سجّل دخولك للهجوم على البوس</div>
+                <div style={{ fontFamily: "monospace", fontSize: 12, color: T.gold, textAlign: "center", padding: 14, border: `1px solid ${T.gold}40`, borderRadius: 10 }}>
+                  سجّل دخولك للهجوم على البوس
+                </div>
               ) : (
                 <button
                   onClick={handleAttack}
-                  disabled={attacking || boss.is_dead || attackCount >= 70}
+                  disabled={isDisabled}
                   style={{
-                    width: "100%", padding: "16px 0",
-                    background: (boss.is_dead || attackCount >= 3) ? "rgba(0,0,0,0.3)" : attacking ? `${tier.color}30` : `linear-gradient(180deg, ${tier.color}30, ${tier.color}10)`,
-                    border: `1px solid ${(boss.is_dead || attackCount >= 3) ? T.border : tier.color}`,
-                    color: (boss.is_dead || attackCount >= 3) ? T.muted : tier.color,
+                    width: "100%", padding: "17px 0",
+                    background: isDisabled ? "rgba(0,0,0,0.3)" : attacking ? `${tier.color}30` : `linear-gradient(180deg, ${tier.color}35, ${tier.color}12)`,
+                    border: `1px solid ${isDisabled ? T.border : tier.color}`,
+                    color: isDisabled ? T.muted : tier.color,
                     fontFamily: "'Orbitron', monospace", fontSize: 15, fontWeight: 900,
-                    borderRadius: 10, cursor: (boss.is_dead || attackCount >= 3) ? "default" : "pointer",
+                    borderRadius: 10, cursor: isDisabled ? "default" : "pointer",
                     letterSpacing: 2, transition: "all 0.2s",
-                    boxShadow: (boss.is_dead || attackCount >= 3) ? "none" : `0 0 18px ${tier.color}35`,
+                    boxShadow: isDisabled ? "none" : `0 0 22px ${tier.color}40`,
                   }}
                 >
-                  {boss.is_dead ? "✅ البوس ميت" : attackCount >= 70 ? "🚫 استنفدت ضرباتك اليوم" : attacking ? "⚔️ يهجم..." : `⚔️ هجوم (${70 - attackCount} متبقية اليوم)`}
+                  {boss.is_dead ? "✅ البوس سقط" : isExhausted ? `🚫 استنفدت ضرباتك اليوم (${DAILY_LIMIT}/${DAILY_LIMIT})` : attacking ? "⚔️ يهجم..." : `⚔️ هجوم (${DAILY_LIMIT - attackCount} متبقية)`}
                 </button>
               )}
             </div>
@@ -1213,21 +1222,25 @@ export function WorldBossPage({ fetchBoss, attackBoss, currentUser, state }) {
 
           {ranking.length > 0 && (
             <div>
-              <div style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: 3, color: T.muted, marginBottom: 12 }}>🏆 ترتيب الضرر</div>
+              <div style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: 3, color: T.muted, marginBottom: 12 }}>🏆 ترتيب الضرر — أعلى 3 يحصلون على جوائز البوس</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {ranking.map((r, i) => {
                   const medals = ["🥇", "🥈", "🥉"];
+                  const rewardLabels = ["5,000,000", "2,000,000", "800,000"];
                   const isMe = currentUser && r.discord_id === currentUser.id;
                   return (
                     <div key={r.discord_id} style={{
-                      ...glass({ padding: "10px 16px" }),
+                      ...glass({ padding: "12px 16px" }),
                       display: "flex", alignItems: "center", gap: 12,
                       border: isMe ? `1px solid ${T.gold}` : i < 3 ? `1px solid ${tier.color}40` : `1px solid ${T.border}`,
-                      animation: `fadeUp 0.3s ease-out ${i * 0.04}s both`,
+                      animation: `fadeUp 0.3s ease-out ${i * 0.05}s both`,
                     }}>
-                      <span style={{ width: 24, fontFamily: "monospace", fontSize: i < 3 ? 16 : 12, color: T.gold }}>{i < 3 ? medals[i] : `#${i + 1}`}</span>
+                      <span style={{ width: 28, fontFamily: "monospace", fontSize: i < 3 ? 18 : 12, color: T.gold }}>{i < 3 ? medals[i] : `#${i + 1}`}</span>
                       <span style={{ flex: 1, fontFamily: "monospace", fontSize: 12, color: isMe ? T.gold : T.text }}>{r.username} {isMe && "(أنت)"}</span>
-                      <span style={{ fontFamily: "'Orbitron', monospace", fontSize: 13, color: tier.color, fontWeight: 700 }}>{Number(r.total_damage).toLocaleString()}</span>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 13, color: tier.color, fontWeight: 700 }}>{Number(r.total_damage).toLocaleString()}</div>
+                        {i < 3 && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#22d3ee" }}>+{rewardLabels[i]} EXP</div>}
+                      </div>
                     </div>
                   );
                 })}
@@ -1239,6 +1252,7 @@ export function WorldBossPage({ fetchBoss, attackBoss, currentUser, state }) {
     </div>
   );
 }
+
 // ─── EMOJI PICKER DATA ────────────────────────────────────────────────────────
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "⚔️", "💀", "👑", "🎉", "💪", "🌟", "✨", "🏆", "💎", "🎯", "👊", "🤝"];
 
@@ -1293,7 +1307,6 @@ function ChatMessage({ msg, currentUser, onReply, onReact, onDelete, onProfile, 
     return d.toLocaleDateString("ar-SA", { month: "short", day: "numeric" });
   })();
 
-  // تجميع الريأكشنز
   const reactions = {};
   const reactionsRaw = msg.reactions || [];
   const reactionsArr = Array.isArray(reactionsRaw)
@@ -1315,14 +1328,10 @@ function ChatMessage({ msg, currentUser, onReply, onReact, onDelete, onProfile, 
       onMouseLeave={() => { setShowActions(false); setShowEmojiPicker(false); }}
       style={{ display: "flex", gap: 10, padding: "6px 16px", alignItems: "flex-start", position: "relative", transition: "background 0.15s", background: showActions ? "rgba(139,92,246,0.04)" : "transparent", borderRadius: 8 }}
     >
-      {/* أفاتار — قابل للضغط */}
       <div onClick={() => onProfile && onProfile(msg)} style={{ cursor: "pointer", marginTop: 2 }}>
         <ChatAvatar user={{ username: msg.username, avatar: msg.avatar, id: msg.discord_id }} size={36} level={msg.level || 1} />
       </div>
-
-      {/* المحتوى */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* هيدر الرسالة */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
           <span
             onClick={() => onProfile && onProfile(msg)}
@@ -1338,21 +1347,15 @@ function ChatMessage({ msg, currentUser, onReply, onReact, onDelete, onProfile, 
             <span style={{ fontFamily: "monospace", fontSize: 9, color: "#6b7280" }}>أنت</span>
           )}
         </div>
-
-        {/* رسالة الرد */}
         {msg.reply_to_content && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5, padding: "4px 10px", background: "rgba(139,92,246,0.08)", borderLeft: "2px solid #a855f780", borderRadius: "0 6px 6px 0" }}>
             <span style={{ fontFamily: "monospace", fontSize: 10, color: "#a855f7" }}>↩ {msg.reply_to_username}</span>
             <span style={{ fontFamily: "monospace", fontSize: 10, color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{msg.reply_to_content}</span>
           </div>
         )}
-
-        {/* نص الرسالة */}
         <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#e9d5ff", lineHeight: 1.6, wordBreak: "break-word", direction: "rtl", textAlign: "right" }}>
           {msg.content}
         </div>
-
-        {/* الريأكشنز */}
         {Object.keys(reactions).length > 0 && (
           <div style={{ display: "flex", gap: 5, marginTop: 6, flexWrap: "wrap" }}>
             {Object.entries(reactions).map(([emoji, { count, mine }]) => (
@@ -1364,18 +1367,14 @@ function ChatMessage({ msg, currentUser, onReply, onReact, onDelete, onProfile, 
           </div>
         )}
       </div>
-
-      {/* أزرار الأكشن — تظهر عند hover */}
       {showActions && currentUser && (
         <div style={{ position: "absolute", left: 16, top: 4, display: "flex", gap: 4, background: "rgba(10,4,32,0.95)", border: "1px solid rgba(139,92,246,0.25)", borderRadius: 10, padding: "4px 6px", zIndex: 10, backdropFilter: "blur(12px)" }}>
-          {/* رد */}
           <button onClick={() => onReply(msg)} title="رد"
             style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 15, padding: "3px 6px", borderRadius: 6, transition: "all 0.15s" }}
             onMouseEnter={e => { e.currentTarget.style.background = "rgba(139,92,246,0.15)"; e.currentTarget.style.color = "#a855f7"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#6b7280"; }}>
             ↩
           </button>
-          {/* ريأكشن */}
           <div style={{ position: "relative" }}>
             <button onClick={() => setShowEmojiPicker(p => !p)} title="ريأكشن"
               style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 15, padding: "3px 6px", borderRadius: 6, transition: "all 0.15s" }}
@@ -1396,7 +1395,6 @@ function ChatMessage({ msg, currentUser, onReply, onReact, onDelete, onProfile, 
               </div>
             )}
           </div>
-          {/* حذف — للأدمن أو صاحب الرسالة */}
           {(isMe || isAdmin) && (
             <button onClick={() => onDelete(msg.id)} title="حذف"
               style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 14, padding: "3px 6px", borderRadius: 6, transition: "all 0.15s" }}
@@ -1428,17 +1426,15 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
   const bottomRef = useRef(null);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
-  const isAtBottomRef = useRef(true);   // نسخة ref لنستخدمها داخل callbacks بدون dependency
-  const messagesRef = useRef([]);     // نسخة ref للرسائل الحالية
+  const isAtBottomRef = useRef(true);
+  const messagesRef = useRef([]);
 
   const ROOM = "global";
   const MAX_CHARS = 500;
 
-  // نزامن الـ refs مع الـ state
   useEffect(() => { isAtBottomRef.current = isAtBottom; }, [isAtBottom]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
-  // ── تحميل الرسائل — fetchMessages الوحيد في dependency array ─────────────
   const load = useCallback(async (initial = false) => {
     if (!fetchMessages) return;
     let data;
@@ -1451,7 +1447,6 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
       setMessages(data);
       setLoading(false);
     } else {
-      // دمج الجديد بدون تكرار — نقرأ من الـ ref لا من state
       const ids = new Set(messagesRef.current.map(m => m.id));
       const fresh = data.filter(m => !ids.has(m.id));
       if (fresh.length) {
@@ -1460,25 +1455,21 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
       }
     }
 
-    // عدد النشطين مؤخراً
     if (data.length) {
       const fiveMins = Date.now() - 5 * 60 * 1000;
       const unique = new Set(data.filter(m => new Date(m.created_at) > fiveMins).map(m => m.discord_id));
       setOnlineCount(unique.size || Math.min(data.length, 12));
     }
-  }, [fetchMessages]);   // ✅ لا يعتمد على isAtBottom
+  }, [fetchMessages]);
 
-  // تحميل أولي مرة واحدة
   useEffect(() => { load(true); }, [load]);
 
-  // polling ثابت — يُشغَّل مرة واحدة ولا يعيد التشغيل
   useEffect(() => {
     if (!fetchMessages) return;
     const id = setInterval(() => load(false), 3000);
     return () => clearInterval(id);
   }, [load]);
 
-  // ── تمرير تلقائي للأسفل ──────────────────────────────────────────────────
   useEffect(() => {
     if (isAtBottom) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isAtBottom]);
@@ -1497,14 +1488,12 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
     setUnread(0);
   };
 
-  // ── إرسال رسالة ──────────────────────────────────────────────────────────
   const handleSend = async () => {
     const text = input.trim();
     if (!text || !currentUser || sending) return;
     if (text.length > MAX_CHARS) return;
     const replyToId = replyTo?.id || null;
 
-    // optimistic: أضف الرسالة فوراً قبل انتظار السيرفر
     const tempId = "temp_" + Date.now();
     const optimisticMsg = {
       id: tempId,
@@ -1528,14 +1517,12 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
     setSending(false);
 
     if (result) {
-      // استبدل الرسالة المؤقتة بالرسالة الحقيقية من السيرفر
       setMessages(prev => {
         const withoutTemp = prev.filter(m => m.id !== tempId);
         const ids = new Set(withoutTemp.map(m => m.id));
         return ids.has(result.id) ? withoutTemp : [...withoutTemp, result];
       });
     } else {
-      // فشل الإرسال — شيل الرسالة المؤقتة وارجع النص
       setMessages(prev => prev.filter(m => m.id !== tempId));
       setInput(text);
     }
@@ -1545,18 +1532,15 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  // ── حذف رسالة ────────────────────────────────────────────────────────────
   const handleDelete = async (msgId) => {
     if (!window.confirm("حذف هذه الرسالة؟")) return;
     const ok = await deleteMessage(ROOM, msgId);
     if (ok) setMessages(prev => prev.filter(m => m.id !== msgId));
   };
 
-  // ── ريأكشن ────────────────────────────────────────────────────────────────
   const handleReact = async (msgId, emoji) => {
     if (!currentUser) return;
     await addReaction(ROOM, msgId, emoji);
-    // optimistic update
     setMessages(prev => prev.map(m => {
       if (m.id !== msgId) return m;
       const reactionsRaw2 = m.reactions || [];
@@ -1568,7 +1552,6 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
     }));
   };
 
-  // ── عرض البروفايل ─────────────────────────────────────────────────────────
   const openProfile = async (msg) => {
     setProfilePlayer({ discord_id: msg.discord_id, username: msg.username, avatar: msg.avatar, level: msg.level || 1 });
     setProfileData(null);
@@ -1580,7 +1563,6 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
     setProfileLoading(false);
   };
 
-  // ── تجميع الرسائل (تواريخ فاصلة) ────────────────────────────────────────
   const grouped = [];
   let lastDay = null;
   messages.forEach((msg, i) => {
@@ -1607,7 +1589,6 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
         .chat-input:focus { border-color: rgba(168,85,247,0.5) !important; box-shadow: 0 0 0 2px rgba(168,85,247,0.12) !important; }
       `}</style>
 
-      {/* ── HEADER ── */}
       <div style={{
         flexShrink: 0, padding: "14px 20px",
         background: "rgba(10,4,32,0.85)",
@@ -1636,7 +1617,6 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
         </div>
       </div>
 
-      {/* ── MESSAGES ── */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -1653,7 +1633,6 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
             <div style={{ fontSize: 13, color: "#6b7280" }}>لا توجد رسائل بعد</div>
             <div style={{ fontSize: 11, color: "#374151" }}>كن أول من يبدأ المحادثة!</div>
             <div style={{ marginTop: 16, padding: "12px 20px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, fontSize: 11, color: "#fbbf24", lineHeight: 1.7, direction: "rtl" }}>
-
               <code style={{ color: "#22d3ee", background: "rgba(34,211,238,0.1)", padding: "1px 6px", borderRadius: 4 }}>l</code><br />
               <code style={{ color: "#22d3ee", background: "rgba(34,211,238,0.1)", padding: "1px 6px", borderRadius: 4 }}></code>
             </div>
@@ -1697,7 +1676,6 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
         )}
       </div>
 
-      {/* ── SCROLL TO BOTTOM BUTTON ── */}
       {showScrollBtn && (
         <div style={{ position: "absolute", bottom: 110, left: "50%", transform: "translateX(-50%)", zIndex: 50, animation: "fadeUp 0.2s ease-out" }}>
           <button onClick={scrollToBottom}
@@ -1708,7 +1686,6 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
         </div>
       )}
 
-      {/* ── INPUT AREA ── */}
       <div style={{
         flexShrink: 0,
         background: "rgba(10,4,32,0.9)",
@@ -1716,7 +1693,6 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
         backdropFilter: "blur(20px)",
         padding: "10px 16px 16px",
       }}>
-        {/* بانر الرد */}
         {replyTo && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", marginBottom: 8, background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 8 }}>
             <span style={{ fontFamily: "monospace", fontSize: 11, color: "#a855f7" }}>↩ ردًا على {replyTo.username}</span>
@@ -1731,10 +1707,7 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
-            {/* أفاتار المستخدم */}
             <ChatAvatar user={{ username: currentUser.username, avatar: currentUser.avatar, id: currentUser.id }} size={36} level={state?.level || 1} />
-
-            {/* صندوق الكتابة */}
             <div style={{ flex: 1, position: "relative" }}>
               <textarea
                 ref={inputRef}
@@ -1758,15 +1731,12 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
                   e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
                 }}
               />
-              {/* عداد الحروف */}
               {input.length > MAX_CHARS * 0.7 && (
                 <div style={{ position: "absolute", bottom: 8, left: 10, fontFamily: "monospace", fontSize: 10, color: input.length >= MAX_CHARS ? "#ef4444" : "#6b7280" }}>
                   {input.length}/{MAX_CHARS}
                 </div>
               )}
             </div>
-
-            {/* زر الإرسال */}
             <button
               onClick={handleSend}
               disabled={!canSend || sending}
@@ -1788,7 +1758,6 @@ export function ChatPage({ currentUser, fetchMessages, sendMessage, deleteMessag
         )}
       </div>
 
-      {/* ── PROFILE MODAL ── */}
       {profilePlayer && (
         <ProfileModal
           player={profilePlayer}
