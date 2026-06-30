@@ -907,6 +907,51 @@ function saveDailyAttacks(userId, count) {
   } catch {}
 }
 
+// ─── TIMESTAMP HELPER ──────────────────────────────────────────────────────────
+// Normalizes any timestamp shape coming from the API (number, numeric string,
+// ISO date string, unix seconds, or unix milliseconds) into a valid epoch-ms
+// number, or returns null when the value cannot be trusted. This is the single
+// source of truth for parsing starts_at / ends_at so the timers can never
+// render NaN.
+function parseTimestampMs(value) {
+  if (value === null || value === undefined || value === "") return null;
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+    // Heuristic: unix-seconds values are ~10 digits, ms values are ~13 digits
+    return value < 1e12 ? value * 1000 : value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    // Pure numeric string (epoch seconds or ms)
+    if (/^\d+$/.test(trimmed)) {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n)) return null;
+      return trimmed.length <= 10 ? n * 1000 : n;
+    }
+
+    // ISO date string / anything Date can parse (Postgres/Supabase timestamps)
+    const parsed = Date.parse(trimmed);
+    if (Number.isFinite(parsed)) return parsed;
+
+    return null;
+  }
+
+  return null;
+}
+
+// Formats a millisecond diff as "Hس Mد Sث", clamped at zero.
+function formatCountdown(diffMs) {
+  const safeDiff = Math.max(0, diffMs);
+  const h = Math.floor(safeDiff / 3600000);
+  const m = Math.floor((safeDiff % 3600000) / 60000);
+  const s = Math.floor((safeDiff % 60000) / 1000);
+  return `${h}س ${m}د ${s}ث`;
+}
+
 // ─── WORLD BOSS PAGE ──────────────────────────────────────────────────────────
 export function WorldBossPage({ fetchBoss, attackBoss, currentUser, state }) {
   const [data, setData] = useState(null);
@@ -944,31 +989,36 @@ export function WorldBossPage({ fetchBoss, attackBoss, currentUser, state }) {
   }, [load]);
 
   useEffect(() => {
-    const endsAt = data?.boss?.ends_at;
-    if (!endsAt || data?.boss?.status === "respawning") { setTimeLeft(""); return; }
+    const endsAt = parseTimestampMs(data?.boss?.ends_at);
+    if (data?.boss?.status === "respawning") { setTimeLeft(""); return; }
+    if (endsAt === null) {
+      // No valid timestamp from the API — never render NaN, show a safe placeholder instead.
+      setTimeLeft(data?.boss ? "Waiting for respawn..." : "");
+      return;
+    }
     const tick = () => {
-      const diff = new Date(endsAt) - new Date();
+      const diff = endsAt - Date.now();
       if (diff <= 0) { setTimeLeft("انتهت الجولة"); return; }
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setTimeLeft(`${h}س ${m}د ${s}ث`);
+      setTimeLeft(formatCountdown(diff));
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [data?.boss?.ends_at, data?.boss?.status]);
+  }, [data?.boss?.ends_at, data?.boss?.status, data?.boss]);
 
   useEffect(() => {
-    const startsAt = data?.boss?.starts_at;
-    if (!startsAt || data?.boss?.status !== "respawning") { setRespawnLeft(""); return; }
+    const startsAt = parseTimestampMs(data?.boss?.starts_at);
+    if (data?.boss?.status !== "respawning") { setRespawnLeft(""); return; }
+    if (startsAt === null) {
+      // status says "respawning" but starts_at is missing/invalid — show a safe
+      // placeholder instead of NaN while we wait for the API to send a real value.
+      setRespawnLeft("Waiting for respawn...");
+      return;
+    }
     const tick = () => {
-      const diff = new Date(startsAt) - new Date();
+      const diff = startsAt - Date.now();
       if (diff <= 0) { setRespawnLeft("يعود الآن..."); load(); return; }
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setRespawnLeft(`${h}س ${m}د ${s}ث`);
+      setRespawnLeft(formatCountdown(diff));
     };
     tick();
     const id = setInterval(tick, 1000);
